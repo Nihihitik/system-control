@@ -1,0 +1,72 @@
+# ПОЛНЫЙ ВАРИАНТ - запуск всего вместе (опционально)
+# Для раздельного запуска используйте:
+# - backend: cd backend && docker-compose up --build
+# - frontend: cd frontend && docker-compose up --build
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: system-control-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: system_control
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - system-control-network
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: system-control-backend
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: system_control
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/system_control
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-this-in-production}
+      JWT_EXPIRATION: 15m
+      PORT: 3000
+      NODE_ENV: production
+      FRONTEND_URL: http://localhost:3001
+    ports:
+      - '3000:3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - system-control-network
+    command: sh -c "npx drizzle-kit push && npm run start:prod"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: system-control-frontend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3000
+    ports:
+      - '3001:3001'
+    depends_on:
+      - backend
+    networks:
+      - system-control-network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  system-control-network:
+    driver: bridge

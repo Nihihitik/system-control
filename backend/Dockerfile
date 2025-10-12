@@ -1,0 +1,45 @@
+# Build stage
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install all dependencies (including dev dependencies)
+RUN npm install
+
+# Copy prisma schema
+COPY prisma ./prisma
+
+# Generate Prisma Client
+RUN npx prisma generate
+
+# Copy source code
+COPY . .
+
+# Build the application
+RUN npm run build
+
+# Production stage
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy package files and install production dependencies
+COPY package*.json ./
+
+# Copy Prisma schema first
+COPY --from=builder /app/prisma ./prisma
+
+# Install production dependencies and generate Prisma Client
+RUN npm install --omit=dev && npx prisma generate
+
+# Copy built application from builder stage
+COPY --from=builder /app/dist ./dist
+
+# Expose port
+EXPOSE 3000
+
+# Run migrations and start the application
+CMD ["sh", "-c", "npx prisma migrate deploy && npm run start:prod"]

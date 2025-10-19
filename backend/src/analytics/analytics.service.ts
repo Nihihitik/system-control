@@ -5,18 +5,23 @@ import { PrismaService } from '../prisma/prisma.service';
 export class AnalyticsService {
   constructor(private prisma: PrismaService) {}
 
-  async getOverview(managerId: number) {
-    // Get all project IDs for this manager
-    const managerProjects = await this.prisma.project.findMany({
+  // Helper method to get project IDs based on role
+  private async getProjectIds(userId: number, role: 'manager' | 'observer'): Promise<number[]> {
+    const relationField = role === 'manager' ? 'managers' : 'observers';
+    const projects = await this.prisma.project.findMany({
       where: {
-        managers: {
-          some: { id: managerId },
+        [relationField]: {
+          some: { id: userId },
         },
       },
       select: { id: true },
     });
+    return projects.map((p) => p.id);
+  }
 
-    const projectIds = managerProjects.map((p) => p.id);
+  async getOverview(userId: number, role: 'manager' | 'observer' = 'manager') {
+    // Get all project IDs for this user
+    const projectIds = await this.getProjectIds(userId, role);
 
     if (projectIds.length === 0) {
       return {
@@ -64,18 +69,9 @@ export class AnalyticsService {
     };
   }
 
-  async getOverdue(managerId: number) {
-    // Get all project IDs for this manager
-    const managerProjects = await this.prisma.project.findMany({
-      where: {
-        managers: {
-          some: { id: managerId },
-        },
-      },
-      select: { id: true },
-    });
-
-    const projectIds = managerProjects.map((p) => p.id);
+  async getOverdue(userId: number, role: 'manager' | 'observer' = 'manager') {
+    // Get all project IDs for this user
+    const projectIds = await this.getProjectIds(userId, role);
 
     if (projectIds.length === 0) {
       return {
@@ -144,18 +140,9 @@ export class AnalyticsService {
     };
   }
 
-  async getByAssignee(managerId: number) {
-    // Get all project IDs for this manager
-    const managerProjects = await this.prisma.project.findMany({
-      where: {
-        managers: {
-          some: { id: managerId },
-        },
-      },
-      select: { id: true },
-    });
-
-    const projectIds = managerProjects.map((p) => p.id);
+  async getByAssignee(userId: number, role: 'manager' | 'observer' = 'manager') {
+    // Get all project IDs for this user
+    const projectIds = await this.getProjectIds(userId, role);
 
     if (projectIds.length === 0) {
       return [];
@@ -208,18 +195,9 @@ export class AnalyticsService {
     return Array.from(assigneeMap.values()).sort((a, b) => b.total - a.total);
   }
 
-  async getByLocation(managerId: number) {
-    // Get all project IDs for this manager
-    const managerProjects = await this.prisma.project.findMany({
-      where: {
-        managers: {
-          some: { id: managerId },
-        },
-      },
-      select: { id: true },
-    });
-
-    const projectIds = managerProjects.map((p) => p.id);
+  async getByLocation(userId: number, role: 'manager' | 'observer' = 'manager') {
+    // Get all project IDs for this user
+    const projectIds = await this.getProjectIds(userId, role);
 
     if (projectIds.length === 0) {
       return [];
@@ -258,5 +236,79 @@ export class AnalyticsService {
     }));
 
     return result.sort((a, b) => b.count - a.count);
+  }
+
+  async getTrends(userId: number, role: 'manager' | 'observer' = 'manager', days: number = 30) {
+    // Get all project IDs for this user
+    const projectIds = await this.getProjectIds(userId, role);
+
+    if (projectIds.length === 0) {
+      return [];
+    }
+
+    // Calculate start date (days ago from today)
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    // Get defects created in the period
+    const createdDefects = await this.prisma.defect.findMany({
+      where: {
+        projectId: { in: projectIds },
+        createdAt: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+      select: {
+        createdAt: true,
+      },
+    });
+
+    // Get defects closed in the period
+    const closedDefects = await this.prisma.defect.findMany({
+      where: {
+        projectId: { in: projectIds },
+        status: 'closed',
+        updatedAt: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+      select: {
+        updatedAt: true,
+      },
+    });
+
+    // Group by date
+    const dateMap = new Map<string, { date: string; created: number; closed: number }>();
+
+    // Initialize all dates in the range
+    for (let i = 0; i <= days; i++) {
+      const date = new Date(startDate);
+      date.setDate(date.getDate() + i);
+      const dateStr = date.toISOString().split('T')[0];
+      dateMap.set(dateStr, { date: dateStr, created: 0, closed: 0 });
+    }
+
+    // Count created defects per date
+    for (const defect of createdDefects) {
+      const dateStr = defect.createdAt.toISOString().split('T')[0];
+      const entry = dateMap.get(dateStr);
+      if (entry) {
+        entry.created += 1;
+      }
+    }
+
+    // Count closed defects per date
+    for (const defect of closedDefects) {
+      const dateStr = defect.updatedAt.toISOString().split('T')[0];
+      const entry = dateMap.get(dateStr);
+      if (entry) {
+        entry.closed += 1;
+      }
+    }
+
+    return Array.from(dateMap.values()).sort((a, b) => a.date.localeCompare(b.date));
   }
 }

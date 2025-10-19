@@ -7,18 +7,23 @@ import { Workbook } from 'exceljs';
 export class ReportsService {
   constructor(private prisma: PrismaService) {}
 
-  async getDefectsForExport(managerId: number, filters: ExportFiltersDto) {
-    // Get all project IDs for this manager
-    const managerProjects = await this.prisma.project.findMany({
+  async getDefectsForExport(
+    userId: number,
+    filters: ExportFiltersDto,
+    role: 'manager' | 'observer' = 'manager',
+  ) {
+    // Get all project IDs for this user based on role
+    const relationField = role === 'manager' ? 'managers' : 'observers';
+    const userProjects = await this.prisma.project.findMany({
       where: {
-        managers: {
-          some: { id: managerId },
+        [relationField]: {
+          some: { id: userId },
         },
       },
       select: { id: true },
     });
 
-    const projectIds = managerProjects.map((p) => p.id);
+    const projectIds = userProjects.map((p) => p.id);
 
     if (projectIds.length === 0) {
       return [];
@@ -108,8 +113,12 @@ export class ReportsService {
     });
   }
 
-  async exportToCSV(managerId: number, filters: ExportFiltersDto): Promise<string> {
-    const defects = await this.getDefectsForExport(managerId, filters);
+  async exportToCSV(
+    userId: number,
+    filters: ExportFiltersDto,
+    role: 'manager' | 'observer' = 'manager',
+  ): Promise<string> {
+    const defects = await this.getDefectsForExport(userId, filters, role);
 
     // CSV headers
     const headers = [
@@ -162,8 +171,12 @@ export class ReportsService {
     return csv;
   }
 
-  async exportToExcel(managerId: number, filters: ExportFiltersDto): Promise<Buffer> {
-    const defects = await this.getDefectsForExport(managerId, filters);
+  async exportToExcel(
+    userId: number,
+    filters: ExportFiltersDto,
+    role: 'manager' | 'observer' = 'manager',
+  ): Promise<Buffer> {
+    const defects = await this.getDefectsForExport(userId, filters, role);
 
     const workbook = new Workbook();
     const worksheet = workbook.addWorksheet('Дефекты');

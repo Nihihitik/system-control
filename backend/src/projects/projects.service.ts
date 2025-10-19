@@ -417,4 +417,105 @@ export class ProjectsService {
       },
     });
   }
+
+  // Observer-specific methods
+  async findObserverProjects(observerId: number) {
+    return this.prisma.project.findMany({
+      where: {
+        observers: {
+          some: {
+            id: observerId,
+          },
+        },
+        isArchived: false,
+      },
+      include: {
+        objects: {
+          include: {
+            stages: true,
+            _count: {
+              select: {
+                defects: true,
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            defects: true,
+          },
+        },
+        observers: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
+
+  async assignObserver(projectId: number, observerId: number) {
+    await this.findProjectById(projectId);
+
+    // Verify user is an observer
+    const user = await this.prisma.user.findUnique({
+      where: { id: observerId },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User with ID ${observerId} not found`);
+    }
+
+    if (user.role !== 'observer') {
+      throw new BadRequestException(`User is not an observer`);
+    }
+
+    return this.prisma.project.update({
+      where: { id: projectId },
+      data: {
+        observers: {
+          connect: { id: observerId },
+        },
+      },
+      include: {
+        observers: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+    });
+  }
+
+  async removeObserver(projectId: number, observerId: number) {
+    await this.findProjectById(projectId);
+
+    return this.prisma.project.update({
+      where: { id: projectId },
+      data: {
+        observers: {
+          disconnect: { id: observerId },
+        },
+      },
+      include: {
+        observers: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+    });
+  }
 }

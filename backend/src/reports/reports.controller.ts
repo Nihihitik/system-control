@@ -15,8 +15,8 @@ export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 
   @Get('defects/csv')
-  @Roles('manager')
-  @ApiOperation({ summary: 'Экспортировать дефекты в CSV (только Manager)' })
+  @Roles('manager', 'observer')
+  @ApiOperation({ summary: 'Экспортировать дефекты в CSV (Manager и Observer)' })
   @ApiResponse({ status: 200, description: 'CSV файл с дефектами' })
   @ApiResponse({ status: 403, description: 'Недостаточно прав' })
   async exportDefectsToCSV(
@@ -24,7 +24,7 @@ export class ReportsController {
     @Request() req: any,
     @Response() res: ExpressResponse,
   ) {
-    const csv = await this.reportsService.exportToCSV(req.user.sub, filters);
+    const csv = await this.reportsService.exportToCSV(req.user.sub, filters, req.user.role);
 
     const filename = `defects_${new Date().toISOString().split('T')[0]}.csv`;
 
@@ -34,8 +34,8 @@ export class ReportsController {
   }
 
   @Get('defects/excel')
-  @Roles('manager')
-  @ApiOperation({ summary: 'Экспортировать дефекты в Excel (только Manager)' })
+  @Roles('manager', 'observer')
+  @ApiOperation({ summary: 'Экспортировать дефекты в Excel (Manager и Observer)' })
   @ApiResponse({ status: 200, description: 'Excel файл с дефектами' })
   @ApiResponse({ status: 403, description: 'Недостаточно прав' })
   async exportDefectsToExcel(
@@ -43,7 +43,7 @@ export class ReportsController {
     @Request() req: any,
     @Response() res: ExpressResponse,
   ) {
-    const buffer = await this.reportsService.exportToExcel(req.user.sub, filters);
+    const buffer = await this.reportsService.exportToExcel(req.user.sub, filters, req.user.role);
 
     const filename = `defects_${new Date().toISOString().split('T')[0]}.xlsx`;
 

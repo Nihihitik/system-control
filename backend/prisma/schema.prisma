@@ -51,6 +51,7 @@ model User {
   comments        Comment[]
   defectHistory   DefectHistory[]
   managedProjects Project[]       @relation("ProjectManagers")
+  observedProjects Project[]      @relation("ProjectObservers")
 
   @@map("users")
 }
@@ -69,6 +70,7 @@ model Project {
   objects  BuildingObject[]
   defects  Defect[]
   managers User[]           @relation("ProjectManagers")
+  observers User[]          @relation("ProjectObservers")
 
   @@map("projects")
 }

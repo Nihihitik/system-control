@@ -184,16 +184,23 @@ export class ProjectsController {
     return this.projectsService.deleteStage(id);
   }
 
-  // Manager assignments endpoints
+  // Manager and Observer - My projects endpoint
   @Get('my')
-  @Roles('manager')
-  @ApiOperation({ summary: 'Получить проекты текущего менеджера' })
-  @ApiResponse({ status: 200, description: 'Список проектов менеджера' })
+  @Roles('manager', 'observer')
+  @ApiOperation({ summary: 'Получить проекты текущего пользователя (Manager или Observer)' })
+  @ApiResponse({ status: 200, description: 'Список проектов пользователя' })
   @ApiResponse({ status: 403, description: 'Недостаточно прав' })
   findMyProjects(@Request() req: any) {
-    return this.projectsService.findManagerProjects(req.user.sub);
+    const role = req.user.role;
+    if (role === 'manager') {
+      return this.projectsService.findManagerProjects(req.user.sub);
+    } else if (role === 'observer') {
+      return this.projectsService.findObserverProjects(req.user.sub);
+    }
+    return [];
   }
 
+  // Manager assignments endpoints
   @Patch(':id/managers/:managerId')
   @Roles('manager')
   @ApiOperation({ summary: 'Назначить менеджера на проект (только Manager)' })
@@ -223,5 +230,38 @@ export class ProjectsController {
     @Param('managerId', ParseIntPipe) managerId: number,
   ) {
     return this.projectsService.removeManager(id, managerId);
+  }
+
+  // Observer assignments endpoints
+
+  @Patch(':id/observers/:observerId')
+  @Roles('manager')
+  @ApiOperation({ summary: 'Назначить наблюдателя на проект (только Manager)' })
+  @ApiParam({ name: 'id', description: 'ID проекта' })
+  @ApiParam({ name: 'observerId', description: 'ID наблюдателя' })
+  @ApiResponse({ status: 200, description: 'Наблюдатель назначен' })
+  @ApiResponse({ status: 400, description: 'Пользователь не является наблюдателем' })
+  @ApiResponse({ status: 403, description: 'Недостаточно прав' })
+  @ApiResponse({ status: 404, description: 'Проект или пользователь не найден' })
+  assignObserver(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('observerId', ParseIntPipe) observerId: number,
+  ) {
+    return this.projectsService.assignObserver(id, observerId);
+  }
+
+  @Delete(':id/observers/:observerId')
+  @Roles('manager')
+  @ApiOperation({ summary: 'Снять наблюдателя с проекта (только Manager)' })
+  @ApiParam({ name: 'id', description: 'ID проекта' })
+  @ApiParam({ name: 'observerId', description: 'ID наблюдателя' })
+  @ApiResponse({ status: 200, description: 'Наблюдатель снят с проекта' })
+  @ApiResponse({ status: 403, description: 'Недостаточно прав' })
+  @ApiResponse({ status: 404, description: 'Проект не найден' })
+  removeObserver(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('observerId', ParseIntPipe) observerId: number,
+  ) {
+    return this.projectsService.removeObserver(id, observerId);
   }
 }

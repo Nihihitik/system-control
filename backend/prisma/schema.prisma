@@ -19,6 +19,21 @@ enum UserRole {
   observer
 }
 
+enum DefectStatus {
+  new
+  in_progress
+  under_review
+  closed
+  cancelled
+}
+
+enum DefectPriority {
+  critical
+  high
+  medium
+  low
+}
+
 model User {
   id         Int      @id @default(autoincrement())
   firstName  String   @map("first_name") @db.VarChar(255)
@@ -30,5 +45,139 @@ model User {
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
 
+  // Relations
+  createdDefects  Defect[]        @relation("DefectAuthor")
+  assignedDefects Defect[]        @relation("DefectAssignee")
+  comments        Comment[]
+  defectHistory   DefectHistory[]
+
   @@map("users")
+}
+
+model Project {
+  id          Int              @id @default(autoincrement())
+  name        String           @db.VarChar(255)
+  description String?          @db.Text
+  startDate   DateTime?        @map("start_date")
+  endDate     DateTime?        @map("end_date")
+  isArchived  Boolean          @default(false) @map("is_archived")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @default(now()) @updatedAt @map("updated_at")
+
+  // Relations
+  objects BuildingObject[]
+  defects Defect[]
+
+  @@map("projects")
+}
+
+model BuildingObject {
+  id          Int      @id @default(autoincrement())
+  projectId   Int      @map("project_id")
+  name        String   @db.VarChar(255)
+  type        String?  @db.VarChar(100)
+  description String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  stages  Stage[]
+  defects Defect[]
+
+  @@map("building_objects")
+}
+
+model Stage {
+  id              Int      @id @default(autoincrement())
+  buildingObjectId Int     @map("building_object_id")
+  name            String   @db.VarChar(255)
+  description     String?  @db.Text
+  startDate       DateTime? @map("start_date")
+  endDate         DateTime? @map("end_date")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
+
+  // Relations
+  buildingObject BuildingObject @relation(fields: [buildingObjectId], references: [id], onDelete: Cascade)
+  defects        Defect[]
+
+  @@map("stages")
+}
+
+model Defect {
+  id              Int            @id @default(autoincrement())
+  title           String         @db.VarChar(200)
+  description     String         @db.Text
+  status          DefectStatus   @default(new)
+  priority        DefectPriority @default(medium)
+  projectId       Int            @map("project_id")
+  buildingObjectId Int           @map("building_object_id")
+  stageId         Int            @map("stage_id")
+  authorId        Int            @map("author_id")
+  assigneeId      Int?           @map("assignee_id")
+  plannedDate     DateTime?      @map("planned_date")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @default(now()) @updatedAt @map("updated_at")
+
+  // Relations
+  project        Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  buildingObject BuildingObject   @relation(fields: [buildingObjectId], references: [id], onDelete: Cascade)
+  stage          Stage            @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  author         User             @relation("DefectAuthor", fields: [authorId], references: [id])
+  assignee       User?            @relation("DefectAssignee", fields: [assigneeId], references: [id])
+  comments       Comment[]
+  attachments    Attachment[]
+  history        DefectHistory[]
+
+  @@map("defects")
+}
+
+model Comment {
+  id        Int      @id @default(autoincrement())
+  defectId  Int      @map("defect_id")
+  authorId  Int      @map("author_id")
+  content   String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  // Relations
+  defect      Defect       @relation(fields: [defectId], references: [id], onDelete: Cascade)
+  author      User         @relation(fields: [authorId], references: [id])
+  attachments Attachment[]
+
+  @@map("comments")
+}
+
+model Attachment {
+  id          Int      @id @default(autoincrement())
+  fileName    String   @map("file_name") @db.VarChar(255)
+  mimeType    String   @map("mime_type") @db.VarChar(100)
+  fileData    Bytes    @map("file_data")
+  fileSize    Int      @map("file_size")
+  defectId    Int?     @map("defect_id")
+  commentId   Int?     @map("comment_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  defect  Defect?  @relation(fields: [defectId], references: [id], onDelete: Cascade)
+  comment Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@map("attachments")
+}
+
+model DefectHistory {
+  id        Int      @id @default(autoincrement())
+  defectId  Int      @map("defect_id")
+  userId    Int      @map("user_id")
+  field     String   @db.VarChar(50)
+  oldValue  String?  @map("old_value") @db.Text
+  newValue  String?  @map("new_value") @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  defect Defect @relation(fields: [defectId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@map("defect_history")
 }

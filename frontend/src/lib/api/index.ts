@@ -2,6 +2,9 @@ import { defectsApi } from './defects';
 import { projectsApi } from './projects';
 import { commentsApi } from './comments';
 import { attachmentsApi } from './attachments';
+import { analyticsApi } from './analytics';
+import { reportsApi } from './reports';
+import { usersApi } from './users';
 
 // Unified API object with all methods
 export const api = {
@@ -44,3 +47,6 @@ export { defectsApi } from './defects';
 export { projectsApi } from './projects';
 export { commentsApi } from './comments';
 export { attachmentsApi } from './attachments';
+export { analyticsApi } from './analytics';
+export { reportsApi } from './reports';
+export { usersApi } from './users';

@@ -200,7 +200,97 @@ export default function DashboardPage() {
     );
   }
 
-  // Default dashboard for Manager/Observer
+  // Manager dashboard with analytics
+  if (user.role === 'manager') {
+    return (
+      <div className="min-h-screen">
+        <Header />
+        <main className="container mx-auto px-4 py-8">
+          <h1 className="mb-8 text-3xl font-bold">Панель аналитики</h1>
+
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Всего дефектов</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">-</div>
+                <p className="text-xs text-muted-foreground">
+                  Загрузка данных...
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">В работе</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">-</div>
+                <p className="text-xs text-muted-foreground">
+                  Активные дефекты
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Просрочено</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-red-600">-</div>
+                <p className="text-xs text-muted-foreground">
+                  Требуют внимания
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Закрыто</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">-</div>
+                <p className="text-xs text-muted-foreground">
+                  Завершенные дефекты
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Добро пожаловать в систему контроля</CardTitle>
+              <CardDescription>
+                Аналитика и отчеты по дефектам для менеджеров
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Используйте навигацию выше для доступа к различным разделам системы:
+              </p>
+              <ul className="space-y-2 text-sm">
+                <li>
+                  <span className="font-medium">Аналитика</span> - просмотр статистики и ключевых показателей
+                </li>
+                <li>
+                  <span className="font-medium">Проекты</span> - управление проектами, объектами и этапами
+                </li>
+                <li>
+                  <span className="font-medium">Дефекты</span> - просмотр и управление всеми дефектами
+                </li>
+                <li>
+                  <span className="font-medium">Отчеты</span> - экспорт данных в CSV и Excel
+                </li>
+              </ul>
+            </CardContent>
+          </Card>
+        </main>
+      </div>
+    );
+  }
+
+  // Default dashboard for Observer
   return (
     <div className="min-h-screen">
       <Header />

@@ -26,6 +26,10 @@ export interface Project {
   createdAt: string;
   updatedAt: string;
   objects?: BuildingObject[];
+  managers?: User[];
+  _count?: {
+    defects: number;
+  };
 }
 
 export interface BuildingObject {
@@ -170,4 +174,46 @@ export interface CreateCommentDto {
 
 export interface UpdateCommentDto {
   content: string;
+}
+
+// Analytics types
+export interface AnalyticsOverview {
+  total: number;
+  byStatus: Record<DefectStatus, number>;
+  byPriority: Record<DefectPriority, number>;
+}
+
+export interface AnalyticsOverdueDefect extends Defect {
+  project: Project;
+  buildingObject: BuildingObject;
+  stage: Stage;
+  assignee?: User;
+}
+
+export interface AnalyticsOverdue {
+  count: number;
+  percentage: number;
+  defects: AnalyticsOverdueDefect[];
+}
+
+export interface AnalyticsByAssignee {
+  assignee: User | { id: null; firstName: string; lastName: string; email: string };
+  total: number;
+  byStatus: Record<DefectStatus, number>;
+}
+
+export interface AnalyticsByLocation {
+  object: BuildingObject & { project: Project };
+  count: number;
+}
+
+// Reports export filter params
+export interface ExportFiltersParams {
+  status?: DefectStatus;
+  priority?: DefectPriority;
+  projectId?: number;
+  buildingObjectId?: number;
+  assigneeId?: number;
+  dateFrom?: string;
+  dateTo?: string;
 }

@@ -3,18 +3,55 @@
 import { useAuth } from '@/lib/auth-context';
 import { Header } from '@/components/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DefectCard } from '@/components/defects/defect-card';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { defectsApi } from '@/lib/api/index';
+import type { Defect, DefectStatus } from '@/types';
 
 export default function DashboardPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const [defects, setDefects] = useState<Defect[]>([]);
+  const [loadingDefects, setLoadingDefects] = useState(true);
+  const [activeTab, setActiveTab] = useState<'all' | DefectStatus>('all');
 
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
     }
   }, [user, loading, router]);
+
+  useEffect(() => {
+    if (user) {
+      loadDefects();
+    }
+  }, [user]);
+
+  const loadDefects = async () => {
+    try {
+      setLoadingDefects(true);
+      const response = await defectsApi.getAssignedDefects({ limit: 100 });
+      setDefects(response.data);
+    } catch (error) {
+      console.error('Failed to load defects:', error);
+    } finally {
+      setLoadingDefects(false);
+    }
+  };
+
+  const filterDefectsByStatus = (status: 'all' | DefectStatus) => {
+    if (status === 'all') return defects;
+    return defects.filter((d) => d.status === status);
+  };
+
+  const getStatusCount = (status: 'all' | DefectStatus) => {
+    if (status === 'all') return defects.length;
+    return defects.filter((d) => d.status === status).length;
+  };
 
   if (loading) {
     return (
@@ -28,6 +65,142 @@ export default function DashboardPage() {
     return null;
   }
 
+  // Show different dashboard for Engineer role
+  if (user.role === 'engineer') {
+    return (
+      <div className="min-h-screen">
+        <Header />
+        <main className="container mx-auto px-4 py-8">
+          <div className="flex items-center justify-between mb-8">
+            <h1 className="text-3xl font-bold">Мои задачи</h1>
+            <Button onClick={() => router.push('/dashboard/defects/new')}>
+              Создать дефект
+            </Button>
+          </div>
+
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'all' | DefectStatus)}>
+            <TabsList className="mb-6">
+              <TabsTrigger value="all">
+                Все ({getStatusCount('all')})
+              </TabsTrigger>
+              <TabsTrigger value="new">
+                Новая ({getStatusCount('new')})
+              </TabsTrigger>
+              <TabsTrigger value="in_progress">
+                В работе ({getStatusCount('in_progress')})
+              </TabsTrigger>
+              <TabsTrigger value="under_review">
+                На проверке ({getStatusCount('under_review')})
+              </TabsTrigger>
+              <TabsTrigger value="closed">
+                Закрыта ({getStatusCount('closed')})
+              </TabsTrigger>
+            </TabsList>
+
+            {loadingDefects ? (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <Card key={i}>
+                    <CardHeader>
+                      <Skeleton className="h-6 w-3/4" />
+                      <Skeleton className="h-4 w-1/2 mt-2" />
+                    </CardHeader>
+                    <CardContent>
+                      <Skeleton className="h-20 w-full" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <>
+                <TabsContent value="all" className="mt-0">
+                  {filterDefectsByStatus('all').length === 0 ? (
+                    <Card>
+                      <CardContent className="py-8 text-center text-muted-foreground">
+                        У вас пока нет назначенных дефектов
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      {filterDefectsByStatus('all').map((defect) => (
+                        <DefectCard key={defect.id} defect={defect} />
+                      ))}
+                    </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="new" className="mt-0">
+                  {filterDefectsByStatus('new').length === 0 ? (
+                    <Card>
+                      <CardContent className="py-8 text-center text-muted-foreground">
+                        Нет новых дефектов
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      {filterDefectsByStatus('new').map((defect) => (
+                        <DefectCard key={defect.id} defect={defect} />
+                      ))}
+                    </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="in_progress" className="mt-0">
+                  {filterDefectsByStatus('in_progress').length === 0 ? (
+                    <Card>
+                      <CardContent className="py-8 text-center text-muted-foreground">
+                        Нет дефектов в работе
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      {filterDefectsByStatus('in_progress').map((defect) => (
+                        <DefectCard key={defect.id} defect={defect} />
+                      ))}
+                    </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="under_review" className="mt-0">
+                  {filterDefectsByStatus('under_review').length === 0 ? (
+                    <Card>
+                      <CardContent className="py-8 text-center text-muted-foreground">
+                        Нет дефектов на проверке
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      {filterDefectsByStatus('under_review').map((defect) => (
+                        <DefectCard key={defect.id} defect={defect} />
+                      ))}
+                    </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="closed" className="mt-0">
+                  {filterDefectsByStatus('closed').length === 0 ? (
+                    <Card>
+                      <CardContent className="py-8 text-center text-muted-foreground">
+                        Нет закрытых дефектов
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      {filterDefectsByStatus('closed').map((defect) => (
+                        <DefectCard key={defect.id} defect={defect} />
+                      ))}
+                    </div>
+                  )}
+                </TabsContent>
+              </>
+            )}
+          </Tabs>
+        </main>
+      </div>
+    );
+  }
+
+  // Default dashboard for Manager/Observer
   return (
     <div className="min-h-screen">
       <Header />

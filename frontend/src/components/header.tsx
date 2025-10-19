@@ -17,9 +17,12 @@ export function Header() {
         <nav className="flex items-center gap-4">
           {user ? (
             <>
-              <span className="text-sm text-muted-foreground">
+              <Link
+                href="/dashboard"
+                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              >
                 {user.firstName} {user.lastName} ({user.role})
-              </span>
+              </Link>
               <Button onClick={() => logout()} variant="outline">
                 Выйти
               </Button>

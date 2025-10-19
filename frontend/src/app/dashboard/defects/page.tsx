@@ -4,18 +4,21 @@ import { useAuth } from '@/lib/auth-context';
 import { Header } from '@/components/header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { api } from '@/lib/api';
-import type { Defect } from '@/types';
+import { defectsApi } from '@/lib/api';
+import type { Defect, DefectFilterParams } from '@/types';
 import { DefectCard } from '@/components/defects/defect-card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { DefectFilters } from '@/components/filters/defect-filters';
 
 export default function DefectsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [defects, setDefects] = useState<Defect[]>([]);
   const [loadingDefects, setLoadingDefects] = useState(true);
+  const [filters, setFilters] = useState<DefectFilterParams>({ limit: 100 });
 
   useEffect(() => {
     if (!loading && !user) {
@@ -24,27 +27,35 @@ export default function DefectsPage() {
   }, [user, loading, router]);
 
   useEffect(() => {
-    if (!loading && user?.role !== 'manager') {
+    if (!loading && user && user.role !== 'manager' && user.role !== 'observer') {
       router.push('/dashboard');
     }
   }, [user, loading, router]);
 
   useEffect(() => {
-    if (user?.role === 'manager') {
+    if (user && (user.role === 'manager' || user.role === 'observer')) {
       loadDefects();
     }
-  }, [user]);
+  }, [user, filters]);
 
   const loadDefects = async () => {
+    if (!user) return;
+
     try {
       setLoadingDefects(true);
-      const response = await defectsApi.getManagerDefects({ limit: 100 });
+      const response = user.role === 'observer'
+        ? await defectsApi.getObserverDefects(filters)
+        : await defectsApi.getManagerDefects(filters);
       setDefects(response.data);
     } catch (error) {
       console.error('Failed to load defects:', error);
     } finally {
       setLoadingDefects(false);
     }
+  };
+
+  const handleFiltersChange = (newFilters: DefectFilterParams) => {
+    setFilters({ ...newFilters, limit: 100 });
   };
 
   if (loading) {
@@ -55,9 +66,11 @@ export default function DefectsPage() {
     );
   }
 
-  if (!user || user.role !== 'manager') {
+  if (!user || (user.role !== 'manager' && user.role !== 'observer')) {
     return null;
   }
+
+  const isObserver = user.role === 'observer';
 
   return (
     <div className="min-h-screen">
@@ -65,15 +78,25 @@ export default function DefectsPage() {
       <main className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold">Все дефекты</h1>
+            <h1 className="text-3xl font-bold">
+              {isObserver ? 'Просмотр дефектов' : 'Все дефекты'}
+            </h1>
             <p className="text-muted-foreground mt-2">
               Дефекты по всем вашим проектам
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline">Фильтры</Button>
-            <Button>Создать дефект</Button>
+          <div className="flex gap-2 items-center">
+            {isObserver && (
+              <Badge variant="secondary" className="text-sm">
+                Только просмотр
+              </Badge>
+            )}
+            {!isObserver && <Button>Создать дефект</Button>}
           </div>
+        </div>
+
+        <div className="mb-6">
+          <DefectFilters filters={filters} onFiltersChange={handleFiltersChange} />
         </div>
 
         {loadingDefects ? (

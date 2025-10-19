@@ -4,9 +4,10 @@ import { useAuth } from '@/lib/auth-context';
 import { Header } from '@/components/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { api } from '@/lib/api';
+import { reportsApi } from '@/lib/api';
 import { Download, FileSpreadsheet, FileText } from 'lucide-react';
 
 export default function ReportsPage() {
@@ -20,7 +21,7 @@ export default function ReportsPage() {
   }, [user, loading, router]);
 
   useEffect(() => {
-    if (!loading && user?.role !== 'manager') {
+    if (!loading && user && user.role !== 'manager' && user.role !== 'observer') {
       router.push('/dashboard');
     }
   }, [user, loading, router]);
@@ -41,19 +42,28 @@ export default function ReportsPage() {
     );
   }
 
-  if (!user || user.role !== 'manager') {
+  if (!user || (user.role !== 'manager' && user.role !== 'observer')) {
     return null;
   }
+
+  const isObserver = user.role === 'observer';
 
   return (
     <div className="min-h-screen">
       <Header />
       <main className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold">Отчеты</h1>
-          <p className="text-muted-foreground mt-2">
-            Экспорт данных о дефектах в различных форматах
-          </p>
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold">Отчеты</h1>
+            <p className="text-muted-foreground mt-2">
+              Экспорт данных о дефектах в различных форматах
+            </p>
+          </div>
+          {isObserver && (
+            <Badge variant="secondary" className="text-sm">
+              Только просмотр
+            </Badge>
+          )}
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">

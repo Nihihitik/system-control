@@ -30,6 +30,10 @@ export const defectsApi = {
   getManagerDefects: (filters?: DefectFilterParams) =>
     apiClient.get<PaginatedResponse<Defect>>('/defects/manager/all', filters),
 
+  // Get defects for observer's projects (observer only)
+  getObserverDefects: (filters?: DefectFilterParams) =>
+    apiClient.get<PaginatedResponse<Defect>>('/defects/observer/all', filters),
+
   // Get defect by ID
   getDefectById: (id: number) =>
     apiClient.get<Defect>(`/defects/${id}`),

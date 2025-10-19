@@ -4,9 +4,10 @@ import { useAuth } from '@/lib/auth-context';
 import { Header } from '@/components/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { api } from '@/lib/api';
+import { projectsApi } from '@/lib/api';
 import type { Project } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -23,13 +24,13 @@ export default function ProjectsPage() {
   }, [user, loading, router]);
 
   useEffect(() => {
-    if (!loading && user?.role !== 'manager') {
+    if (!loading && user && user.role !== 'manager' && user.role !== 'observer') {
       router.push('/dashboard');
     }
   }, [user, loading, router]);
 
   useEffect(() => {
-    if (user?.role === 'manager') {
+    if (user && (user.role === 'manager' || user.role === 'observer')) {
       loadProjects();
     }
   }, [user]);
@@ -54,9 +55,11 @@ export default function ProjectsPage() {
     );
   }
 
-  if (!user || user.role !== 'manager') {
+  if (!user || (user.role !== 'manager' && user.role !== 'observer')) {
     return null;
   }
+
+  const isObserver = user.role === 'observer';
 
   return (
     <div className="min-h-screen">
@@ -64,12 +67,23 @@ export default function ProjectsPage() {
       <main className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold">Управление проектами</h1>
+            <h1 className="text-3xl font-bold">
+              {isObserver ? 'Просмотр проектов' : 'Управление проектами'}
+            </h1>
             <p className="text-muted-foreground mt-2">
-              Просмотр и управление проектами, объектами и этапами
+              {isObserver
+                ? 'Просмотр проектов, объектов и этапов'
+                : 'Просмотр и управление проектами, объектами и этапами'}
             </p>
           </div>
-          <Button>Создать проект</Button>
+          <div className="flex gap-2 items-center">
+            {isObserver && (
+              <Badge variant="secondary" className="text-sm">
+                Только просмотр
+              </Badge>
+            )}
+            {!isObserver && <Button>Создать проект</Button>}
+          </div>
         </div>
 
         {loadingProjects ? (
@@ -98,7 +112,10 @@ export default function ProjectsPage() {
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {projects.map((project) => (
-              <Card key={project.id} className="hover:shadow-md transition-shadow">
+              <Card
+                key={project.id}
+                className={isObserver ? '' : 'hover:shadow-md transition-shadow'}
+              >
                 <CardHeader>
                   <CardTitle>{project.name}</CardTitle>
                   <CardDescription>
@@ -132,14 +149,16 @@ export default function ProjectsPage() {
                       </div>
                     )}
                   </div>
-                  <div className="mt-4 flex gap-2">
-                    <Button variant="outline" size="sm" className="flex-1">
-                      Просмотр
-                    </Button>
-                    <Button variant="outline" size="sm" className="flex-1">
-                      Редактировать
-                    </Button>
-                  </div>
+                  {!isObserver && (
+                    <div className="mt-4 flex gap-2">
+                      <Button variant="outline" className="flex-1 h-8 text-xs">
+                        Просмотр
+                      </Button>
+                      <Button variant="outline" className="flex-1 h-8 text-xs">
+                        Редактировать
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}

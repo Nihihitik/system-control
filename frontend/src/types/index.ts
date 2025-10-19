@@ -27,6 +27,7 @@ export interface Project {
   updatedAt: string;
   objects?: BuildingObject[];
   managers?: User[];
+  observers?: User[];
   _count?: {
     defects: number;
   };
@@ -205,6 +206,12 @@ export interface AnalyticsByAssignee {
 export interface AnalyticsByLocation {
   object: BuildingObject & { project: Project };
   count: number;
+}
+
+export interface AnalyticsTrendsDataPoint {
+  date: string;
+  created: number;
+  closed: number;
 }
 
 // Reports export filter params

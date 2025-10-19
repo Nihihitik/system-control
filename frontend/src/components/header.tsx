@@ -20,7 +20,7 @@ export function Header() {
             System Control
           </Link>
 
-          {user?.role === 'manager' && (
+          {(user?.role === 'manager' || user?.role === 'observer') && (
             <nav className="flex items-center gap-4">
               <Link
                 href="/dashboard"

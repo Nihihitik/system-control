@@ -7,10 +7,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DefectCard } from '@/components/defects/defect-card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { defectsApi } from '@/lib/api/index';
-import type { Defect, DefectStatus } from '@/types';
+import { defectsApi, analyticsApi } from '@/lib/api/index';
+import type { Defect, DefectStatus, AnalyticsOverview, AnalyticsTrendsDataPoint } from '@/types';
+import { TrendsChart } from '@/components/analytics/trends-chart';
+import { StatusPieChart } from '@/components/analytics/status-pie-chart';
+import { PriorityBarChart } from '@/components/analytics/priority-bar-chart';
 
 export default function DashboardPage() {
   const { user, loading } = useAuth();
@@ -290,7 +294,12 @@ export default function DashboardPage() {
     );
   }
 
-  // Default dashboard for Observer
+  // Observer dashboard with analytics
+  if (user.role === 'observer') {
+    return <ObserverDashboard />;
+  }
+
+  // Default dashboard - should not reach here
   return (
     <div className="min-h-screen">
       <Header />
@@ -337,6 +346,176 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </div>
+      </main>
+    </div>
+  );
+}
+
+function ObserverDashboard() {
+  const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
+  const [trends, setTrends] = useState<AnalyticsTrendsDataPoint[]>([]);
+  const [loadingOverview, setLoadingOverview] = useState(true);
+  const [loadingTrends, setLoadingTrends] = useState(true);
+
+  useEffect(() => {
+    loadAnalytics();
+  }, []);
+
+  const loadAnalytics = async () => {
+    try {
+      setLoadingOverview(true);
+      setLoadingTrends(true);
+
+      const [overviewData, trendsData] = await Promise.all([
+        analyticsApi.getOverview(),
+        analyticsApi.getTrends(30),
+      ]);
+
+      setOverview(overviewData);
+      setTrends(trendsData);
+    } catch (error) {
+      console.error('Failed to load analytics:', error);
+    } finally {
+      setLoadingOverview(false);
+      setLoadingTrends(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen">
+      <Header />
+      <main className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold">Панель аналитики</h1>
+            <p className="text-muted-foreground mt-2">
+              Просмотр статистики и ключевых показателей
+            </p>
+          </div>
+          <Badge variant="secondary" className="text-sm">
+            Только просмотр
+          </Badge>
+        </div>
+
+        {loadingOverview ? (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
+            {[1, 2, 3, 4].map((i) => (
+              <Card key={i}>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <Skeleton className="h-4 w-24" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-8 w-16 mb-2" />
+                  <Skeleton className="h-3 w-32" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : overview ? (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Всего дефектов</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{overview.total}</div>
+                <p className="text-xs text-muted-foreground">
+                  По всем проектам
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">В работе</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-yellow-600">
+                  {overview.byStatus.in_progress}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Активные дефекты
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">На проверке</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-orange-600">
+                  {overview.byStatus.under_review}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Требуют проверки
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Закрыто</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">
+                  {overview.byStatus.closed}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Завершенные дефекты
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        ) : null}
+
+        <div className="grid gap-6 mb-8">
+          {loadingTrends ? (
+            <Card>
+              <CardHeader>
+                <Skeleton className="h-6 w-48" />
+                <Skeleton className="h-4 w-64 mt-2" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-[300px] w-full" />
+              </CardContent>
+            </Card>
+          ) : trends.length > 0 ? (
+            <TrendsChart data={trends} />
+          ) : null}
+        </div>
+
+        {overview && (
+          <div className="grid gap-6 md:grid-cols-2">
+            {loadingOverview ? (
+              <>
+                <Card>
+                  <CardHeader>
+                    <Skeleton className="h-6 w-48" />
+                    <Skeleton className="h-4 w-32 mt-2" />
+                  </CardHeader>
+                  <CardContent>
+                    <Skeleton className="h-[300px] w-full" />
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <Skeleton className="h-6 w-48" />
+                    <Skeleton className="h-4 w-32 mt-2" />
+                  </CardHeader>
+                  <CardContent>
+                    <Skeleton className="h-[300px] w-full" />
+                  </CardContent>
+                </Card>
+              </>
+            ) : (
+              <>
+                <StatusPieChart data={overview.byStatus} />
+                <PriorityBarChart data={overview.byPriority} />
+              </>
+            )}
+          </div>
+        )}
       </main>
     </div>
   );

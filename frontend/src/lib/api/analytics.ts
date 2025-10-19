@@ -4,6 +4,7 @@ import type {
   AnalyticsOverdue,
   AnalyticsByAssignee,
   AnalyticsByLocation,
+  AnalyticsTrendsDataPoint,
 } from '@/types';
 
 export const analyticsApi = {
@@ -14,4 +15,7 @@ export const analyticsApi = {
   getByAssignee: () => apiClient.get<AnalyticsByAssignee[]>('/analytics/by-assignee'),
 
   getByLocation: () => apiClient.get<AnalyticsByLocation[]>('/analytics/by-location'),
+
+  getTrends: (days = 30) =>
+    apiClient.get<AnalyticsTrendsDataPoint[]>('/analytics/trends', { days }),
 };

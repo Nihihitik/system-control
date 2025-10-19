@@ -9,6 +9,8 @@ import { ProjectsModule } from './projects/projects.module';
 import { DefectsModule } from './defects/defects.module';
 import { CommentsModule } from './comments/comments.module';
 import { AttachmentsModule } from './attachments/attachments.module';
+import { AnalyticsModule } from './analytics/analytics.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -22,6 +24,8 @@ import { AttachmentsModule } from './attachments/attachments.module';
     DefectsModule,
     CommentsModule,
     AttachmentsModule,
+    AnalyticsModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

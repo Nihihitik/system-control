@@ -9,6 +9,7 @@ import {
   ParseIntPipe,
   Query,
   UseGuards,
+  Request,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -181,5 +182,46 @@ export class ProjectsController {
   @ApiResponse({ status: 404, description: 'Этап не найден' })
   deleteStage(@Param('id', ParseIntPipe) id: number) {
     return this.projectsService.deleteStage(id);
+  }
+
+  // Manager assignments endpoints
+  @Get('my')
+  @Roles('manager')
+  @ApiOperation({ summary: 'Получить проекты текущего менеджера' })
+  @ApiResponse({ status: 200, description: 'Список проектов менеджера' })
+  @ApiResponse({ status: 403, description: 'Недостаточно прав' })
+  findMyProjects(@Request() req: any) {
+    return this.projectsService.findManagerProjects(req.user.sub);
+  }
+
+  @Patch(':id/managers/:managerId')
+  @Roles('manager')
+  @ApiOperation({ summary: 'Назначить менеджера на проект (только Manager)' })
+  @ApiParam({ name: 'id', description: 'ID проекта' })
+  @ApiParam({ name: 'managerId', description: 'ID менеджера' })
+  @ApiResponse({ status: 200, description: 'Менеджер назначен' })
+  @ApiResponse({ status: 400, description: 'Пользователь не является менеджером' })
+  @ApiResponse({ status: 403, description: 'Недостаточно прав' })
+  @ApiResponse({ status: 404, description: 'Проект или пользователь не найден' })
+  assignManager(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('managerId', ParseIntPipe) managerId: number,
+  ) {
+    return this.projectsService.assignManager(id, managerId);
+  }
+
+  @Delete(':id/managers/:managerId')
+  @Roles('manager')
+  @ApiOperation({ summary: 'Снять менеджера с проекта (только Manager)' })
+  @ApiParam({ name: 'id', description: 'ID проекта' })
+  @ApiParam({ name: 'managerId', description: 'ID менеджера' })
+  @ApiResponse({ status: 200, description: 'Менеджер снят с проекта' })
+  @ApiResponse({ status: 403, description: 'Недостаточно прав' })
+  @ApiResponse({ status: 404, description: 'Проект не найден' })
+  removeManager(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('managerId', ParseIntPipe) managerId: number,
+  ) {
+    return this.projectsService.removeManager(id, managerId);
   }
 }

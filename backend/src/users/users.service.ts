@@ -31,4 +31,22 @@ export class UsersService {
       where: { id },
     });
   }
+
+  async findEngineers() {
+    return this.prisma.user.findMany({
+      where: {
+        role: 'engineer',
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        middleName: true,
+        email: true,
+      },
+      orderBy: {
+        lastName: 'asc',
+      },
+    });
+  }
 }

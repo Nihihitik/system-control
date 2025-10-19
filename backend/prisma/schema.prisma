@@ -50,6 +50,7 @@ model User {
   assignedDefects Defect[]        @relation("DefectAssignee")
   comments        Comment[]
   defectHistory   DefectHistory[]
+  managedProjects Project[]       @relation("ProjectManagers")
 
   @@map("users")
 }
@@ -65,8 +66,9 @@ model Project {
   updatedAt   DateTime         @default(now()) @updatedAt @map("updated_at")
 
   // Relations
-  objects BuildingObject[]
-  defects Defect[]
+  objects  BuildingObject[]
+  defects  Defect[]
+  managers User[]           @relation("ProjectManagers")
 
   @@map("projects")
 }

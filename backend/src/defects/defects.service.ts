@@ -249,6 +249,122 @@ export class DefectsService {
     });
   }
 
+  // Get defects for manager's projects
+  async findManagerDefects(managerId: number, filters: DefectFilterDto) {
+    // Get all project IDs for this manager
+    const managerProjects = await this.prisma.project.findMany({
+      where: {
+        managers: {
+          some: { id: managerId },
+        },
+      },
+      select: { id: true },
+    });
+
+    const projectIds = managerProjects.map((p) => p.id);
+
+    if (projectIds.length === 0) {
+      return {
+        data: [],
+        meta: {
+          total: 0,
+          page: filters.page || 1,
+          limit: filters.limit || 10,
+          totalPages: 0,
+        },
+      };
+    }
+
+    // Use the existing findAllDefects with projectId filter
+    // But we need to filter by array of project IDs
+    // So we'll do a custom query here
+    const where: any = {
+      projectId: { in: projectIds },
+    };
+
+    // Apply other filters
+    if (filters.statuses && filters.statuses.length > 0) {
+      where.status = { in: filters.statuses };
+    }
+    if (filters.priorities && filters.priorities.length > 0) {
+      where.priority = { in: filters.priorities };
+    }
+    if (filters.projectId) {
+      where.projectId = filters.projectId;
+    }
+    if (filters.buildingObjectId) {
+      where.buildingObjectId = filters.buildingObjectId;
+    }
+    if (filters.stageId) {
+      where.stageId = filters.stageId;
+    }
+    if (filters.assigneeId) {
+      where.assigneeId = filters.assigneeId;
+    }
+    if (filters.authorId) {
+      where.authorId = filters.authorId;
+    }
+    if (filters.search) {
+      where.OR = [
+        { title: { contains: filters.search, mode: 'insensitive' } },
+        { description: { contains: filters.search, mode: 'insensitive' } },
+      ];
+    }
+
+    // Pagination
+    const page = filters.page || 1;
+    const limit = filters.limit || 10;
+    const skip = (page - 1) * limit;
+
+    // Get total count
+    const total = await this.prisma.defect.count({ where });
+
+    // Get defects
+    const defects = await this.prisma.defect.findMany({
+      where,
+      include: {
+        project: true,
+        buildingObject: true,
+        stage: true,
+        author: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        assignee: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        _count: {
+          select: {
+            comments: true,
+            attachments: true,
+          },
+        },
+      },
+      skip,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return {
+      data: defects,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
   // Find defect by ID
   async findDefectById(id: number) {
     const defect = await this.prisma.defect.findUnique({

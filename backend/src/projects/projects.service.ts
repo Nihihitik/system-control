@@ -316,4 +316,105 @@ export class ProjectsService {
 
     return { message: 'Stage deleted successfully' };
   }
+
+  // Manager-specific methods
+  async findManagerProjects(managerId: number) {
+    return this.prisma.project.findMany({
+      where: {
+        managers: {
+          some: {
+            id: managerId,
+          },
+        },
+        isArchived: false,
+      },
+      include: {
+        objects: {
+          include: {
+            stages: true,
+            _count: {
+              select: {
+                defects: true,
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            defects: true,
+          },
+        },
+        managers: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
+
+  async assignManager(projectId: number, managerId: number) {
+    await this.findProjectById(projectId);
+
+    // Verify user is a manager
+    const user = await this.prisma.user.findUnique({
+      where: { id: managerId },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User with ID ${managerId} not found`);
+    }
+
+    if (user.role !== 'manager') {
+      throw new BadRequestException(`User is not a manager`);
+    }
+
+    return this.prisma.project.update({
+      where: { id: projectId },
+      data: {
+        managers: {
+          connect: { id: managerId },
+        },
+      },
+      include: {
+        managers: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+    });
+  }
+
+  async removeManager(projectId: number, managerId: number) {
+    await this.findProjectById(projectId);
+
+    return this.prisma.project.update({
+      where: { id: projectId },
+      data: {
+        managers: {
+          disconnect: { id: managerId },
+        },
+      },
+      include: {
+        managers: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+    });
+  }
 }

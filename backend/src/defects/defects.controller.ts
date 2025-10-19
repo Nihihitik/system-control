@@ -71,6 +71,15 @@ export class DefectsController {
     return this.defectsService.findCreatedDefects(req.user.sub, filters);
   }
 
+  @Get('manager/all')
+  @Roles('manager')
+  @ApiOperation({ summary: 'Получить все дефекты по проектам менеджера (только Manager)' })
+  @ApiResponse({ status: 200, description: 'Дефекты по проектам менеджера' })
+  @ApiResponse({ status: 403, description: 'Недостаточно прав' })
+  findManagerDefects(@Query() filters: DefectFilterDto, @Request() req: any) {
+    return this.defectsService.findManagerDefects(req.user.sub, filters);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Получить дефект по ID' })
   @ApiParam({ name: 'id', description: 'ID дефекта' })

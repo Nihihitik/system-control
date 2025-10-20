@@ -11,6 +11,7 @@ export function Header() {
   const pathname = usePathname();
 
   const isActive = (path: string) => pathname === path;
+  const isHome = pathname === '/';
 
   return (
     <header className="border-b">
@@ -20,8 +21,22 @@ export function Header() {
             System Control
           </Link>
 
+          {isHome && (
+            <nav className="hidden items-center gap-4 sm:flex">
+              <Link href="#features" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+                Возможности
+              </Link>
+              <Link href="#pricing" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+                Цены
+              </Link>
+              <Link href="#faq" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+                FAQ
+              </Link>
+            </nav>
+          )}
+
           {(user?.role === 'manager' || user?.role === 'observer') && (
-            <nav className="flex items-center gap-4">
+            <nav className="hidden items-center gap-4 sm:flex">
               <Link
                 href="/dashboard"
                 className={cn(

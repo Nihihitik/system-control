@@ -10,8 +10,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { defectsApi, analyticsApi } from '@/lib/api/index';
-import type { Defect, DefectStatus, AnalyticsOverview, AnalyticsTrendsDataPoint } from '@/types';
+import { defectsApi, analyticsApi, projectsApi } from '@/lib/api/index';
+import type { Defect, DefectStatus, AnalyticsOverview, AnalyticsTrendsDataPoint, Project } from '@/types';
 import { TrendsChart } from '@/components/analytics/trends-chart';
 import { StatusPieChart } from '@/components/analytics/status-pie-chart';
 import { PriorityBarChart } from '@/components/analytics/priority-bar-chart';
@@ -19,9 +19,12 @@ import { PriorityBarChart } from '@/components/analytics/priority-bar-chart';
 export default function DashboardPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [defects, setDefects] = useState<Defect[]>([]);
+  const [assignedDefects, setAssignedDefects] = useState<Defect[]>([]);
+  const [createdDefects, setCreatedDefects] = useState<Defect[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [loadingDefects, setLoadingDefects] = useState(true);
-  const [activeTab, setActiveTab] = useState<'all' | DefectStatus>('all');
+  const [loadingProjects, setLoadingProjects] = useState(true);
+  const [activeTab, setActiveTab] = useState<'assigned' | 'created'>('assigned');
 
   useEffect(() => {
     if (!loading && !user) {
@@ -30,31 +33,31 @@ export default function DashboardPage() {
   }, [user, loading, router]);
 
   useEffect(() => {
-    if (user) {
-      loadDefects();
+    if (user && user.role === 'engineer') {
+      loadEngineerData();
     }
   }, [user]);
 
-  const loadDefects = async () => {
+  const loadEngineerData = async () => {
     try {
       setLoadingDefects(true);
-      const response = await defectsApi.getAssignedDefects({ limit: 100 });
-      setDefects(response.data);
+      setLoadingProjects(true);
+
+      const [assignedResponse, createdResponse, projectsData] = await Promise.all([
+        defectsApi.getAssignedDefects({ limit: 100 }),
+        defectsApi.getCreatedDefects({ limit: 100 }),
+        projectsApi.getMyProjects(),
+      ]);
+
+      setAssignedDefects(assignedResponse.data);
+      setCreatedDefects(createdResponse.data);
+      setProjects(projectsData);
     } catch (error) {
-      console.error('Failed to load defects:', error);
+      console.error('Failed to load engineer data:', error);
     } finally {
       setLoadingDefects(false);
+      setLoadingProjects(false);
     }
-  };
-
-  const filterDefectsByStatus = (status: 'all' | DefectStatus) => {
-    if (status === 'all') return defects;
-    return defects.filter((d) => d.status === status);
-  };
-
-  const getStatusCount = (status: 'all' | DefectStatus) => {
-    if (status === 'all') return defects.length;
-    return defects.filter((d) => d.status === status).length;
   };
 
   if (loading) {
@@ -76,227 +79,134 @@ export default function DashboardPage() {
         <Header />
         <main className="container mx-auto px-4 py-8">
           <div className="flex items-center justify-between mb-8">
-            <h1 className="text-3xl font-bold">Мои задачи</h1>
+            <h1 className="text-3xl font-bold">Моя панель</h1>
             <Button onClick={() => router.push('/dashboard/defects/new')}>
               Создать дефект
             </Button>
           </div>
 
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'all' | DefectStatus)}>
-            <TabsList className="mb-6">
-              <TabsTrigger value="all">
-                Все ({getStatusCount('all')})
-              </TabsTrigger>
-              <TabsTrigger value="new">
-                Новая ({getStatusCount('new')})
-              </TabsTrigger>
-              <TabsTrigger value="in_progress">
-                В работе ({getStatusCount('in_progress')})
-              </TabsTrigger>
-              <TabsTrigger value="under_review">
-                На проверке ({getStatusCount('under_review')})
-              </TabsTrigger>
-              <TabsTrigger value="closed">
-                Закрыта ({getStatusCount('closed')})
-              </TabsTrigger>
-            </TabsList>
-
-            {loadingDefects ? (
+          {/* Projects Section */}
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold mb-4">Мои проекты</h2>
+            {loadingProjects ? (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {[1, 2, 3, 4, 5, 6].map((i) => (
+                {[1, 2, 3].map((i) => (
                   <Card key={i}>
                     <CardHeader>
                       <Skeleton className="h-6 w-3/4" />
                       <Skeleton className="h-4 w-1/2 mt-2" />
                     </CardHeader>
+                  </Card>
+                ))}
+              </div>
+            ) : projects.length === 0 ? (
+              <Card>
+                <CardContent className="py-8 text-center text-muted-foreground">
+                  Вы пока не назначены ни на один проект
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {projects.map((project) => (
+                  <Card key={project.id} className="hover:shadow-md transition-shadow">
+                    <CardHeader>
+                      <CardTitle className="text-lg">{project.name}</CardTitle>
+                      <CardDescription>
+                        {project.description || 'Нет описания'}
+                      </CardDescription>
+                    </CardHeader>
                     <CardContent>
-                      <Skeleton className="h-20 w-full" />
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Объектов:</span>
+                          <span>{project.objects?.length || 0}</span>
+                        </div>
+                        {project._count && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Дефектов:</span>
+                            <span>{project._count.defects}</span>
+                          </div>
+                        )}
+                      </div>
                     </CardContent>
                   </Card>
                 ))}
               </div>
-            ) : (
-              <>
-                <TabsContent value="all" className="mt-0">
-                  {filterDefectsByStatus('all').length === 0 ? (
-                    <Card>
-                      <CardContent className="py-8 text-center text-muted-foreground">
-                        У вас пока нет назначенных дефектов
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                      {filterDefectsByStatus('all').map((defect) => (
-                        <DefectCard key={defect.id} defect={defect} />
-                      ))}
-                    </div>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="new" className="mt-0">
-                  {filterDefectsByStatus('new').length === 0 ? (
-                    <Card>
-                      <CardContent className="py-8 text-center text-muted-foreground">
-                        Нет новых дефектов
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                      {filterDefectsByStatus('new').map((defect) => (
-                        <DefectCard key={defect.id} defect={defect} />
-                      ))}
-                    </div>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="in_progress" className="mt-0">
-                  {filterDefectsByStatus('in_progress').length === 0 ? (
-                    <Card>
-                      <CardContent className="py-8 text-center text-muted-foreground">
-                        Нет дефектов в работе
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                      {filterDefectsByStatus('in_progress').map((defect) => (
-                        <DefectCard key={defect.id} defect={defect} />
-                      ))}
-                    </div>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="under_review" className="mt-0">
-                  {filterDefectsByStatus('under_review').length === 0 ? (
-                    <Card>
-                      <CardContent className="py-8 text-center text-muted-foreground">
-                        Нет дефектов на проверке
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                      {filterDefectsByStatus('under_review').map((defect) => (
-                        <DefectCard key={defect.id} defect={defect} />
-                      ))}
-                    </div>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="closed" className="mt-0">
-                  {filterDefectsByStatus('closed').length === 0 ? (
-                    <Card>
-                      <CardContent className="py-8 text-center text-muted-foreground">
-                        Нет закрытых дефектов
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                      {filterDefectsByStatus('closed').map((defect) => (
-                        <DefectCard key={defect.id} defect={defect} />
-                      ))}
-                    </div>
-                  )}
-                </TabsContent>
-              </>
             )}
-          </Tabs>
-        </main>
-      </div>
-    );
-  }
-
-  // Manager dashboard with analytics
-  if (user.role === 'manager') {
-    return (
-      <div className="min-h-screen">
-        <Header />
-        <main className="container mx-auto px-4 py-8">
-          <h1 className="mb-8 text-3xl font-bold">Панель аналитики</h1>
-
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Всего дефектов</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">-</div>
-                <p className="text-xs text-muted-foreground">
-                  Загрузка данных...
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">В работе</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">-</div>
-                <p className="text-xs text-muted-foreground">
-                  Активные дефекты
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Просрочено</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-red-600">-</div>
-                <p className="text-xs text-muted-foreground">
-                  Требуют внимания
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Закрыто</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-green-600">-</div>
-                <p className="text-xs text-muted-foreground">
-                  Завершенные дефекты
-                </p>
-              </CardContent>
-            </Card>
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Добро пожаловать в систему контроля</CardTitle>
-              <CardDescription>
-                Аналитика и отчеты по дефектам для менеджеров
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">
-                Используйте навигацию выше для доступа к различным разделам системы:
-              </p>
-              <ul className="space-y-2 text-sm">
-                <li>
-                  <span className="font-medium">Аналитика</span> - просмотр статистики и ключевых показателей
-                </li>
-                <li>
-                  <span className="font-medium">Проекты</span> - управление проектами, объектами и этапами
-                </li>
-                <li>
-                  <span className="font-medium">Дефекты</span> - просмотр и управление всеми дефектами
-                </li>
-                <li>
-                  <span className="font-medium">Отчеты</span> - экспорт данных в CSV и Excel
-                </li>
-              </ul>
-            </CardContent>
-          </Card>
+          {/* Defects Section */}
+          <div>
+            <h2 className="text-xl font-semibold mb-4">Мои задачи</h2>
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'assigned' | 'created')}>
+              <TabsList className="mb-6">
+                <TabsTrigger value="assigned">
+                  Назначенные мне ({assignedDefects.length})
+                </TabsTrigger>
+                <TabsTrigger value="created">
+                  Созданные мной ({createdDefects.length})
+                </TabsTrigger>
+              </TabsList>
+
+              {loadingDefects ? (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {[1, 2, 3, 4, 5, 6].map((i) => (
+                    <Card key={i}>
+                      <CardHeader>
+                        <Skeleton className="h-6 w-3/4" />
+                        <Skeleton className="h-4 w-1/2 mt-2" />
+                      </CardHeader>
+                      <CardContent>
+                        <Skeleton className="h-20 w-full" />
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <>
+                  <TabsContent value="assigned" className="mt-0">
+                    {assignedDefects.length === 0 ? (
+                      <Card>
+                        <CardContent className="py-8 text-center text-muted-foreground">
+                          У вас пока нет назначенных дефектов
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        {assignedDefects.map((defect) => (
+                          <DefectCard key={defect.id} defect={defect} />
+                        ))}
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="created" className="mt-0">
+                    {createdDefects.length === 0 ? (
+                      <Card>
+                        <CardContent className="py-8 text-center text-muted-foreground">
+                          Вы пока не создали ни одного дефекта
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        {createdDefects.map((defect) => (
+                          <DefectCard key={defect.id} defect={defect} />
+                        ))}
+                      </div>
+                    )}
+                  </TabsContent>
+                </>
+              )}
+            </Tabs>
+          </div>
         </main>
       </div>
     );
   }
 
-  // Observer dashboard with analytics
-  if (user.role === 'observer') {
-    return <ObserverDashboard />;
+  // Manager and Observer dashboard with analytics
+  if (user.role === 'manager' || user.role === 'observer') {
+    return <AnalyticsDashboard userRole={user.role} />;
   }
 
   // Default dashboard - should not reach here
@@ -351,7 +261,7 @@ export default function DashboardPage() {
   );
 }
 
-function ObserverDashboard() {
+function AnalyticsDashboard({ userRole }: { userRole: 'manager' | 'observer' }) {
   const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
   const [trends, setTrends] = useState<AnalyticsTrendsDataPoint[]>([]);
   const [loadingOverview, setLoadingOverview] = useState(true);
@@ -392,9 +302,11 @@ function ObserverDashboard() {
               Просмотр статистики и ключевых показателей
             </p>
           </div>
-          <Badge variant="secondary" className="text-sm">
-            Только просмотр
-          </Badge>
+          {userRole === 'observer' && (
+            <Badge variant="secondary" className="text-sm">
+              Только просмотр
+            </Badge>
+          )}
         </div>
 
         {loadingOverview ? (

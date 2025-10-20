@@ -82,7 +82,11 @@ export default function ProjectsPage() {
                 Только просмотр
               </Badge>
             )}
-            {!isObserver && <Button>Создать проект</Button>}
+            {!isObserver && (
+              <Button onClick={() => router.push('/dashboard/projects/new')}>
+                Создать проект
+              </Button>
+            )}
           </div>
         </div>
 
@@ -106,7 +110,9 @@ export default function ProjectsPage() {
               <p className="text-muted-foreground mb-4">
                 У вас пока нет назначенных проектов
               </p>
-              <Button>Создать первый проект</Button>
+              <Button onClick={() => router.push('/dashboard/projects/new')}>
+                Создать первый проект
+              </Button>
             </CardContent>
           </Card>
         ) : (
@@ -151,10 +157,18 @@ export default function ProjectsPage() {
                   </div>
                   {!isObserver && (
                     <div className="mt-4 flex gap-2">
-                      <Button variant="outline" className="flex-1 h-8 text-xs">
+                      <Button
+                        variant="outline"
+                        className="flex-1 h-8 text-xs"
+                        onClick={() => router.push(`/dashboard/projects/${project.id}`)}
+                      >
                         Просмотр
                       </Button>
-                      <Button variant="outline" className="flex-1 h-8 text-xs">
+                      <Button
+                        variant="outline"
+                        className="flex-1 h-8 text-xs"
+                        onClick={() => router.push(`/dashboard/projects/${project.id}/edit`)}
+                      >
                         Редактировать
                       </Button>
                     </div>

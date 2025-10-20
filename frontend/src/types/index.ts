@@ -28,6 +28,7 @@ export interface Project {
   objects?: BuildingObject[];
   managers?: User[];
   observers?: User[];
+  engineers?: User[];
   _count?: {
     defects: number;
   };
@@ -57,6 +58,14 @@ export interface Stage {
   buildingObject?: BuildingObject;
 }
 
+export interface DefectAdditionalAssignee {
+  id: number;
+  defectId: number;
+  userId: number;
+  user: User;
+  createdAt: string;
+}
+
 export interface Defect {
   id: number;
   title: string;
@@ -76,6 +85,7 @@ export interface Defect {
   stage?: Stage;
   author?: User;
   assignee?: User;
+  additionalAssignees?: DefectAdditionalAssignee[];
   comments?: Comment[];
   attachments?: Attachment[];
   history?: DefectHistory[];
@@ -133,6 +143,48 @@ export interface UpdateDefectDto {
   description?: string;
   priority?: DefectPriority;
   plannedDate?: string;
+}
+
+export interface CreateProjectDto {
+  name: string;
+  description?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface UpdateProjectDto {
+  name?: string;
+  description?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface CreateObjectDto {
+  projectId: number;
+  name: string;
+  type?: string;
+  description?: string;
+}
+
+export interface UpdateObjectDto {
+  name?: string;
+  type?: string;
+  description?: string;
+}
+
+export interface CreateStageDto {
+  buildingObjectId: number;
+  name: string;
+  description?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface UpdateStageDto {
+  name?: string;
+  description?: string;
+  startDate?: string;
+  endDate?: string;
 }
 
 export interface UpdateStatusDto {

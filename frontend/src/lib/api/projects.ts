@@ -1,48 +1,15 @@
 import { apiClient } from './client';
-import type { Project, BuildingObject, Stage } from '@/types';
-
-interface CreateProjectDto {
-  name: string;
-  description?: string;
-  startDate?: string;
-  endDate?: string;
-}
-
-interface UpdateProjectDto {
-  name?: string;
-  description?: string;
-  startDate?: string;
-  endDate?: string;
-  isArchived?: boolean;
-}
-
-interface CreateObjectDto {
-  projectId: number;
-  name: string;
-  type?: string;
-  description?: string;
-}
-
-interface UpdateObjectDto {
-  name?: string;
-  type?: string;
-  description?: string;
-}
-
-interface CreateStageDto {
-  buildingObjectId: number;
-  name: string;
-  description?: string;
-  startDate?: string;
-  endDate?: string;
-}
-
-interface UpdateStageDto {
-  name?: string;
-  description?: string;
-  startDate?: string;
-  endDate?: string;
-}
+import type {
+  Project,
+  BuildingObject,
+  Stage,
+  CreateProjectDto,
+  UpdateProjectDto,
+  CreateObjectDto,
+  UpdateObjectDto,
+  CreateStageDto,
+  UpdateStageDto,
+} from '@/types';
 
 export const projectsApi = {
   // Projects - Read
@@ -72,6 +39,20 @@ export const projectsApi = {
 
   removeManager: (projectId: number, managerId: number) =>
     apiClient.delete<Project>(`/projects/${projectId}/managers/${managerId}`),
+
+  // Engineer assignment
+  assignEngineer: (projectId: number, engineerId: number) =>
+    apiClient.patch<Project>(`/projects/${projectId}/engineers/${engineerId}`, {}),
+
+  removeEngineer: (projectId: number, engineerId: number) =>
+    apiClient.delete<Project>(`/projects/${projectId}/engineers/${engineerId}`),
+
+  // Observer assignment
+  assignObserver: (projectId: number, observerId: number) =>
+    apiClient.patch<Project>(`/projects/${projectId}/observers/${observerId}`, {}),
+
+  removeObserver: (projectId: number, observerId: number) =>
+    apiClient.delete<Project>(`/projects/${projectId}/observers/${observerId}`),
 
   // Building Objects - Read
   getObjectsByProjectId: (projectId: number) =>

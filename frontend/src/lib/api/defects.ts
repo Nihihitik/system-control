@@ -54,6 +54,10 @@ export const defectsApi = {
   assignDefect: (id: number, assigneeId: number) =>
     apiClient.patch<Defect>(`/defects/${id}/assign/${assigneeId}`),
 
+  // Add additional assignees (manager or eligible engineer)
+  addAdditionalAssignees: (id: number, assigneeIds: number[]) =>
+    apiClient.patch<Defect>(`/defects/${id}/assignees`, { assigneeIds }),
+
   // Get defect history
   getDefectHistory: (id: number) =>
     apiClient.get<DefectHistory[]>(`/defects/${id}/history`),

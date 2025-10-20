@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { projectsApi, defectsApi } from '@/lib/api/index';
+import { attachmentsApi } from '@/lib/api/attachments';
 import type { Project, BuildingObject, Stage, DefectPriority } from '@/types';
 
 export default function NewDefectPage() {
@@ -30,6 +31,8 @@ export default function NewDefectPage() {
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -96,7 +99,7 @@ export default function NewDefectPage() {
       setSubmitting(true);
       setError(null);
       
-      const newDefect = await defectsApi.createDefect({
+      const created = await defectsApi.createDefect({
         title: title.trim(),
         description: description.trim(),
         projectId: selectedProject.id,
@@ -106,12 +109,25 @@ export default function NewDefectPage() {
         plannedDate: plannedDate || undefined,
       });
 
-      // Redirect to the newly created defect or back to dashboard
-      router.push(`/dashboard/defects/${newDefect.id}`);
+      // Upload attachments if selected
+      if (files.length > 0) {
+        setUploading(true);
+        for (const file of files) {
+          try {
+            await attachmentsApi.uploadAttachment(file, created.id);
+          } catch (err) {
+            console.error('Failed to upload file', file.name, err);
+          }
+        }
+      }
+
+      // Redirect to defect details
+      router.push(`/dashboard/defects/${created.id}`);
     } catch (error: any) {
       console.error('Failed to create defect:', error);
       setError(error?.message || 'Не удалось создать дефект');
       setSubmitting(false);
+      setUploading(false);
     }
   };
 
@@ -157,8 +173,8 @@ export default function NewDefectPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="project">Проект *</Label>
-                <Select 
-                  value={selectedProject?.id.toString()} 
+                <Select
+                  value={selectedProject?.id.toString() || ''}
                   onValueChange={handleProjectChange}
                   disabled={submitting}
                 >
@@ -177,8 +193,8 @@ export default function NewDefectPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="object">Объект строительства *</Label>
-                <Select 
-                  value={selectedObject?.id.toString()} 
+                <Select
+                  value={selectedObject?.id.toString() || ''}
                   onValueChange={handleObjectChange}
                   disabled={!selectedProject || submitting}
                 >
@@ -197,8 +213,8 @@ export default function NewDefectPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="stage">Этап работ *</Label>
-                <Select 
-                  value={selectedStage?.id.toString()} 
+                <Select
+                  value={selectedStage?.id.toString() || ''}
                   onValueChange={handleStageChange}
                   disabled={!selectedObject || submitting}
                 >
@@ -270,9 +286,24 @@ export default function NewDefectPage() {
                 />
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="photos">Фотографии (опционально)</Label>
+                <Input
+                  id="photos"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) => setFiles(Array.from(e.target.files || []))}
+                  disabled={submitting}
+                />
+                {files.length > 0 && (
+                  <p className="text-sm text-muted-foreground">Выбрано файлов: {files.length}</p>
+                )}
+              </div>
+
               <div className="flex gap-4 pt-4">
-                <Button type="submit" disabled={submitting}>
-                  {submitting ? 'Создание...' : 'Создать дефект'}
+                <Button type="submit" disabled={submitting || uploading}>
+                  {submitting ? (uploading ? 'Загрузка фото…' : 'Создание...') : 'Создать дефект'}
                 </Button>
                 <Button 
                   type="button" 

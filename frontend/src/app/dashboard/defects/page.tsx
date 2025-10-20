@@ -91,7 +91,9 @@ export default function DefectsPage() {
                 Только просмотр
               </Badge>
             )}
-            {!isObserver && <Button>Создать дефект</Button>}
+            {!isObserver && (
+              <Button onClick={() => router.push('/dashboard/defects/new')}>Создать дефект</Button>
+            )}
           </div>
         </div>
 

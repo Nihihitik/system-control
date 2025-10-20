@@ -82,6 +82,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
+      // Clear token from localStorage (already done in api.logout, but double-check)
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('token');
+      }
       setUser(null);
       router.push('/login');
     }

@@ -36,13 +36,14 @@ export class AuthController {
     res.cookie('access_token', result.accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: 'lax',
       maxAge: 15 * 60 * 1000, // 15 minutes
     });
 
     return {
       message: 'Registration successful',
       user: result.user,
+      accessToken: result.accessToken,
     };
   }
 
@@ -61,13 +62,14 @@ export class AuthController {
     res.cookie('access_token', result.accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: 'lax',
       maxAge: 15 * 60 * 1000, // 15 minutes
     });
 
     return {
       message: 'Login successful',
       user: result.user,
+      accessToken: result.accessToken,
     };
   }
 

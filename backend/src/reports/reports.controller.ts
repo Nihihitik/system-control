@@ -30,7 +30,7 @@ export class ReportsController {
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.send('\uFEFF' + csv); // Add BOM for correct UTF-8 handling in Excel
+    res.send('\ufeff' + csv); // Add BOM for correct UTF-8 handling in Excel
   }
 
   @Get('defects/excel')

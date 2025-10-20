@@ -46,12 +46,14 @@ model User {
   updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
 
   // Relations
-  createdDefects  Defect[]        @relation("DefectAuthor")
-  assignedDefects Defect[]        @relation("DefectAssignee")
-  comments        Comment[]
-  defectHistory   DefectHistory[]
-  managedProjects Project[]       @relation("ProjectManagers")
-  observedProjects Project[]      @relation("ProjectObservers")
+  createdDefects   Defect[]        @relation("DefectAuthor")
+  assignedDefects  Defect[]        @relation("DefectAssignee")
+  comments         Comment[]
+  defectHistory    DefectHistory[]
+  managedProjects  Project[]       @relation("ProjectManagers")
+  observedProjects Project[]       @relation("ProjectObservers")
+  engineerProjects Project[]       @relation("ProjectEngineers")
+  additionallyAssigned DefectAdditionalAssignee[]
 
   @@map("users")
 }
@@ -67,10 +69,11 @@ model Project {
   updatedAt   DateTime         @default(now()) @updatedAt @map("updated_at")
 
   // Relations
-  objects  BuildingObject[]
-  defects  Defect[]
-  managers User[]           @relation("ProjectManagers")
-  observers User[]          @relation("ProjectObservers")
+  objects   BuildingObject[]
+  defects   Defect[]
+  managers  User[]           @relation("ProjectManagers")
+  observers User[]           @relation("ProjectObservers")
+  engineers User[]           @relation("ProjectEngineers")
 
   @@map("projects")
 }
@@ -133,6 +136,7 @@ model Defect {
   comments       Comment[]
   attachments    Attachment[]
   history        DefectHistory[]
+  additionalAssignees DefectAdditionalAssignee[]
 
   @@map("defects")
 }
@@ -184,4 +188,17 @@ model DefectHistory {
   user   User   @relation(fields: [userId], references: [id])
 
   @@map("defect_history")
+}
+
+model DefectAdditionalAssignee {
+  defectId  Int      @map("defect_id")
+  userId    Int      @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  defect Defect @relation(fields: [defectId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@id([defectId, userId])
+  @@map("defect_additional_assignees")
 }

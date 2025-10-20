@@ -22,6 +22,7 @@ import { CreateDefectDto } from './dto/create-defect.dto';
 import { UpdateDefectDto } from './dto/update-defect.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
 import { DefectFilterDto } from './dto/defect-filter.dto';
+import { AddAssigneesDto } from './dto/add-assignees.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -37,10 +38,10 @@ export class DefectsController {
   @Roles('engineer', 'manager')
   @ApiOperation({ summary: 'Создать новый дефект (Engineer, Manager)' })
   @ApiResponse({ status: 201, description: 'Дефект успешно создан' })
-  @ApiResponse({ status: 403, description: 'Недостаточно прав' })
+  @ApiResponse({ status: 403, description: 'Недостаточно прав или инженер не назначен на проект' })
   @ApiResponse({ status: 404, description: 'Проект/объект/этап не найден' })
   createDefect(@Body() dto: CreateDefectDto, @Request() req: any) {
-    return this.defectsService.createDefect(dto, req.user.sub);
+    return this.defectsService.createDefect(dto, req.user.sub, req.user.role);
   }
 
   @Get()
@@ -99,6 +100,22 @@ export class DefectsController {
   @ApiResponse({ status: 404, description: 'Дефект не найден' })
   findDefectById(@Param('id', ParseIntPipe) id: number) {
     return this.defectsService.findDefectById(id);
+  }
+
+  @Patch(':id/assignees')
+  @Roles('engineer', 'manager')
+  @ApiOperation({ summary: 'Назначить дополнительно инженеров на дефект (Engineer: если автор/исполнитель; Manager: без ограничений)' })
+  @ApiParam({ name: 'id', description: 'ID дефекта' })
+  @ApiResponse({ status: 200, description: 'Инженеры назначены' })
+  @ApiResponse({ status: 400, description: 'Можно назначить только Engineer' })
+  @ApiResponse({ status: 403, description: 'Недостаточно прав' })
+  @ApiResponse({ status: 404, description: 'Дефект или пользователь не найден' })
+  addAdditionalAssignees(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: AddAssigneesDto,
+    @Request() req: any,
+  ) {
+    return this.defectsService.addAdditionalAssignees(id, dto, req.user.sub, req.user.role);
   }
 
   @Patch(':id')

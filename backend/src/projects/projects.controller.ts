@@ -43,8 +43,8 @@ export class ProjectsController {
   @ApiOperation({ summary: 'Создать новый проект (только Manager)' })
   @ApiResponse({ status: 201, description: 'Проект успешно создан' })
   @ApiResponse({ status: 403, description: 'Недостаточно прав' })
-  createProject(@Body() dto: CreateProjectDto) {
-    return this.projectsService.createProject(dto);
+  createProject(@Body() dto: CreateProjectDto, @Request() req: any) {
+    return this.projectsService.createProject(dto, req.user.sub);
   }
 
   @Get()
@@ -53,6 +53,24 @@ export class ProjectsController {
   @ApiResponse({ status: 200, description: 'Список проектов' })
   findAllProjects(@Query('includeArchived') includeArchived?: string) {
     return this.projectsService.findAllProjects(includeArchived === 'true');
+  }
+
+  // Manager, Observer, and Engineer - My projects endpoint
+  @Get('my')
+  @Roles('manager', 'observer', 'engineer')
+  @ApiOperation({ summary: 'Получить проекты текущего пользователя (Manager, Observer, или Engineer)' })
+  @ApiResponse({ status: 200, description: 'Список проектов пользователя' })
+  @ApiResponse({ status: 403, description: 'Недостаточно прав' })
+  findMyProjects(@Request() req: any) {
+    const role = req.user.role;
+    if (role === 'manager') {
+      return this.projectsService.findManagerProjects(req.user.sub);
+    } else if (role === 'observer') {
+      return this.projectsService.findObserverProjects(req.user.sub);
+    } else if (role === 'engineer') {
+      return this.projectsService.findEngineerProjects(req.user.sub);
+    }
+    return [];
   }
 
   @Get(':id')
@@ -91,7 +109,7 @@ export class ProjectsController {
   @ApiOperation({ summary: 'Удалить проект (только Manager, если нет дефектов)' })
   @ApiParam({ name: 'id', description: 'ID проекта' })
   @ApiResponse({ status: 200, description: 'Проект удален' })
-  @ApiResponse({ status: 400, description: 'Проект имеет связанные дефекты' })
+  @ApiResponse({ status: 409, description: 'Проект имеет связанные дефекты' })
   @ApiResponse({ status: 403, description: 'Недостаточно прав' })
   @ApiResponse({ status: 404, description: 'Проект не найден' })
   deleteProject(@Param('id', ParseIntPipe) id: number) {
@@ -184,22 +202,6 @@ export class ProjectsController {
     return this.projectsService.deleteStage(id);
   }
 
-  // Manager and Observer - My projects endpoint
-  @Get('my')
-  @Roles('manager', 'observer')
-  @ApiOperation({ summary: 'Получить проекты текущего пользователя (Manager или Observer)' })
-  @ApiResponse({ status: 200, description: 'Список проектов пользователя' })
-  @ApiResponse({ status: 403, description: 'Недостаточно прав' })
-  findMyProjects(@Request() req: any) {
-    const role = req.user.role;
-    if (role === 'manager') {
-      return this.projectsService.findManagerProjects(req.user.sub);
-    } else if (role === 'observer') {
-      return this.projectsService.findObserverProjects(req.user.sub);
-    }
-    return [];
-  }
-
   // Manager assignments endpoints
   @Patch(':id/managers/:managerId')
   @Roles('manager')
@@ -263,5 +265,37 @@ export class ProjectsController {
     @Param('observerId', ParseIntPipe) observerId: number,
   ) {
     return this.projectsService.removeObserver(id, observerId);
+  }
+
+  // Engineer assignments endpoints
+  @Patch(':id/engineers/:engineerId')
+  @Roles('manager')
+  @ApiOperation({ summary: 'Назначить инженера на проект (только Manager)' })
+  @ApiParam({ name: 'id', description: 'ID проекта' })
+  @ApiParam({ name: 'engineerId', description: 'ID инженера' })
+  @ApiResponse({ status: 200, description: 'Инженер назначен' })
+  @ApiResponse({ status: 400, description: 'Пользователь не является инженером' })
+  @ApiResponse({ status: 403, description: 'Недостаточно прав' })
+  @ApiResponse({ status: 404, description: 'Проект или пользователь не найден' })
+  assignEngineer(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('engineerId', ParseIntPipe) engineerId: number,
+  ) {
+    return this.projectsService.assignEngineer(id, engineerId);
+  }
+
+  @Delete(':id/engineers/:engineerId')
+  @Roles('manager')
+  @ApiOperation({ summary: 'Удалить инженера с проекта (только Manager)' })
+  @ApiParam({ name: 'id', description: 'ID проекта' })
+  @ApiParam({ name: 'engineerId', description: 'ID инженера' })
+  @ApiResponse({ status: 200, description: 'Инженер снят с проекта' })
+  @ApiResponse({ status: 403, description: 'Недостаточно прав' })
+  @ApiResponse({ status: 404, description: 'Проект не найден' })
+  removeEngineer(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('engineerId', ParseIntPipe) engineerId: number,
+  ) {
+    return this.projectsService.removeEngineer(id, engineerId);
   }
 }

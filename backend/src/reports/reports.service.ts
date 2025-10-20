@@ -34,11 +34,16 @@ export class ReportsService {
       projectId: { in: projectIds },
     };
 
-    if (filters.status) {
+    // Support single or multiple status/priority filters
+    if (filters.statuses && filters.statuses.length > 0) {
+      where.status = { in: filters.statuses };
+    } else if (filters.status) {
       where.status = filters.status;
     }
 
-    if (filters.priority) {
+    if (filters.priorities && filters.priorities.length > 0) {
+      where.priority = { in: filters.priorities };
+    } else if (filters.priority) {
       where.priority = filters.priority;
     }
 
@@ -143,24 +148,25 @@ export class ReportsService {
     let csv = headers.join(',') + '\n';
 
     for (const defect of defects) {
+      const esc = (v: string) => `"${(v ?? '').replace(/"/g, '""')}"`;
       const row = [
         defect.id,
-        `"${defect.title.replace(/"/g, '""')}"`,
-        `"${defect.description.replace(/"/g, '""')}"`,
+        esc(defect.title),
+        esc(defect.description),
         this.translateStatus(defect.status),
         this.translatePriority(defect.priority),
-        `"${defect.project.name.replace(/"/g, '""')}"`,
-        `"${defect.buildingObject.name.replace(/"/g, '""')}"`,
-        `"${defect.stage.name.replace(/"/g, '""')}"`,
-        `"${defect.author.lastName} ${defect.author.firstName}"`,
+        esc(defect.project?.name ?? ''),
+        esc(defect.buildingObject?.name ?? ''),
+        esc(defect.stage?.name ?? ''),
+        esc(`${defect.author?.lastName ?? ''} ${defect.author?.firstName ?? ''}`.trim()),
         defect.assignee
-          ? `"${defect.assignee.lastName} ${defect.assignee.firstName}"`
+          ? esc(`${defect.assignee.lastName} ${defect.assignee.firstName}`)
           : 'Не назначено',
         defect.plannedDate
           ? new Date(defect.plannedDate).toLocaleDateString('ru-RU')
           : '',
-        defect._count.comments,
-        defect._count.attachments,
+        defect._count?.comments ?? 0,
+        defect._count?.attachments ?? 0,
         new Date(defect.createdAt).toLocaleDateString('ru-RU'),
         new Date(defect.updatedAt).toLocaleDateString('ru-RU'),
       ];

@@ -11,7 +11,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private authService: AuthService,
   ) {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        (req: any) => req?.cookies?.access_token || null,
+        ExtractJwt.fromAuthHeaderAsBearerToken(),
+      ]),
       ignoreExpiration: false,
       // Ensure type is strictly a string to satisfy StrategyOptions types
       secretOrKey: configService.getOrThrow<string>('JWT_SECRET'),
@@ -23,6 +26,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!user) {
       throw new UnauthorizedException();
     }
-    return user;
+    // Add sub, email, and role from payload for controller compatibility
+    return {
+      ...user,
+      sub: payload.sub,
+      email: payload.email,
+      role: payload.role,
+    };
   }
 }

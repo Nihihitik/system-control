@@ -13,6 +13,7 @@ export class AnalyticsService {
         [relationField]: {
           some: { id: userId },
         },
+        isArchived: false,
       },
       select: { id: true },
     });

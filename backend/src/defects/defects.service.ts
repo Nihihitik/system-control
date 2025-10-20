@@ -16,13 +16,24 @@ export class DefectsService {
   constructor(private prisma: PrismaService) {}
 
   // Create defect
-  async createDefect(dto: CreateDefectDto, authorId: number) {
+  async createDefect(dto: CreateDefectDto, authorId: number, userRole?: string) {
     // Validate project, object, and stage exist
     const project = await this.prisma.project.findUnique({
       where: { id: dto.projectId },
+      include: {
+        engineers: true,
+      },
     });
     if (!project) {
       throw new NotFoundException(`Project with ID ${dto.projectId} not found`);
+    }
+
+    // If user is an engineer, check if they are assigned to the project
+    if (userRole === 'engineer') {
+      const isAssigned = project.engineers.some((engineer) => engineer.id === authorId);
+      if (!isAssigned) {
+        throw new ForbiddenException('Вы не назначены на этот проект');
+      }
     }
 
     const buildingObject = await this.prisma.buildingObject.findUnique({
@@ -118,8 +129,16 @@ export class DefectsService {
       where.priority = { in: priorities };
     }
 
+    // Filter by assigneeId including additional assignees
     if (assigneeId) {
-      where.assigneeId = assigneeId;
+      where.OR = [
+        { assigneeId: assigneeId },
+        {
+          additionalAssignees: {
+            some: { userId: assigneeId },
+          },
+        },
+      ];
     }
 
     if (authorId) {
@@ -164,10 +183,22 @@ export class DefectsService {
     }
 
     if (search) {
-      where.OR = [
+      // Combine with existing OR conditions if assigneeId filter is present
+      const searchConditions = [
         { title: { contains: search, mode: 'insensitive' } },
         { description: { contains: search, mode: 'insensitive' } },
       ];
+      
+      if (where.OR && assigneeId) {
+        // Both assigneeId and search filters exist
+        where.AND = [
+          { OR: where.OR },
+          { OR: searchConditions },
+        ];
+        delete where.OR;
+      } else {
+        where.OR = searchConditions;
+      }
     }
 
     // Get total count
@@ -298,17 +329,37 @@ export class DefectsService {
     if (filters.stageId) {
       where.stageId = filters.stageId;
     }
+    // Filter by assigneeId including additional assignees
     if (filters.assigneeId) {
-      where.assigneeId = filters.assigneeId;
+      where.OR = [
+        { assigneeId: filters.assigneeId },
+        {
+          additionalAssignees: {
+            some: { userId: filters.assigneeId },
+          },
+        },
+      ];
     }
     if (filters.authorId) {
       where.authorId = filters.authorId;
     }
     if (filters.search) {
-      where.OR = [
+      // Combine with existing OR conditions if assigneeId filter is present
+      const searchConditions = [
         { title: { contains: filters.search, mode: 'insensitive' } },
         { description: { contains: filters.search, mode: 'insensitive' } },
       ];
+      
+      if (where.OR && filters.assigneeId) {
+        // Both assigneeId and search filters exist
+        where.AND = [
+          { OR: where.OR },
+          { OR: searchConditions },
+        ];
+        delete where.OR;
+      } else {
+        where.OR = searchConditions;
+      }
     }
 
     // Pagination
@@ -391,6 +442,20 @@ export class DefectsService {
             middleName: true,
             email: true,
             role: true,
+          },
+        },
+        additionalAssignees: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                middleName: true,
+                email: true,
+                role: true,
+              },
+            },
           },
         },
         comments: {
@@ -688,25 +753,15 @@ export class DefectsService {
       return;
     }
 
-    // Engineer can only change status of assigned defects
-    if (defect.assigneeId !== userId) {
-      throw new ForbiddenException('You can only change status of defects assigned to you');
+    // Engineer can change status if they are the author or the assignee
+    const isAuthor = defect.authorId === userId;
+    const isAssignee = defect.assigneeId === userId;
+    if (!isAuthor && !isAssignee) {
+      throw new ForbiddenException('You can only change status of defects you created or are assigned to');
     }
 
-    // Validate allowed transitions for engineer
-    const allowedTransitions: Record<DefectStatus, DefectStatus[]> = {
-      [DefectStatus.new]: [DefectStatus.in_progress],
-      [DefectStatus.in_progress]: [DefectStatus.under_review],
-      [DefectStatus.under_review]: [], // Only manager can change from this status
-      [DefectStatus.closed]: [], // Final status
-      [DefectStatus.cancelled]: [], // Final status
-    };
-
-    if (!allowedTransitions[currentStatus]?.includes(newStatus)) {
-      throw new BadRequestException(
-        `Cannot transition from ${currentStatus} to ${newStatus}`,
-      );
-    }
+    // Engineers can now change to any status if they are author/assignee
+    // No restrictions on status transitions
   }
 
   // Find defects for observer (read-only)
@@ -756,17 +811,37 @@ export class DefectsService {
     if (filters.stageId) {
       where.stageId = filters.stageId;
     }
+    // Filter by assigneeId including additional assignees
     if (filters.assigneeId) {
-      where.assigneeId = filters.assigneeId;
+      where.OR = [
+        { assigneeId: filters.assigneeId },
+        {
+          additionalAssignees: {
+            some: { userId: filters.assigneeId },
+          },
+        },
+      ];
     }
     if (filters.authorId) {
       where.authorId = filters.authorId;
     }
     if (filters.search) {
-      where.OR = [
+      // Combine with existing OR conditions if assigneeId filter is present
+      const searchConditions = [
         { title: { contains: filters.search, mode: 'insensitive' } },
         { description: { contains: filters.search, mode: 'insensitive' } },
       ];
+      
+      if (where.OR && filters.assigneeId) {
+        // Both assigneeId and search filters exist
+        where.AND = [
+          { OR: where.OR },
+          { OR: searchConditions },
+        ];
+        delete where.OR;
+      } else {
+        where.OR = searchConditions;
+      }
     }
 
     // Pagination
@@ -848,5 +923,58 @@ export class DefectsService {
         totalPages: Math.ceil(total / limit),
       },
     };
+  }
+  // Add additional assignees (manager or engineer with rights)
+  async addAdditionalAssignees(
+    id: number,
+    dto: { assigneeIds: number[] },
+    actorId: number,
+    actorRole: string,
+  ) {
+    const defect = await this.findDefectById(id);
+
+    const isManager = actorRole === 'manager';
+    const isAuthor = defect.authorId === actorId;
+    const isAssignee = defect.assigneeId === actorId;
+
+    if (!isManager && !isAuthor && !isAssignee) {
+      throw new ForbiddenException('Недостаточно прав для назначения инженеров');
+    }
+
+    // Validate all users and prepare list
+    const uniqueIds = Array.from(new Set(dto.assigneeIds));
+    if (uniqueIds.length === 0) {
+      throw new BadRequestException('Не указаны исполнители для назначения');
+    }
+
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: uniqueIds } },
+      select: { id: true, email: true, role: true },
+    });
+
+    if (users.length !== uniqueIds.length) {
+      throw new NotFoundException('Один или несколько пользователей не найдены');
+    }
+
+    const nonEngineers = users.filter((u) => u.role !== 'engineer');
+    if (nonEngineers.length > 0) {
+      throw new BadRequestException('Можно назначать только пользователей с ролью engineer');
+    }
+
+    // Create records, ignore duplicates
+    for (const user of users) {
+      await this.prisma.defectAdditionalAssignee.upsert({
+        where: {
+          defectId_userId: { defectId: id, userId: user.id },
+        },
+        update: {},
+        create: { defectId: id, userId: user.id },
+      });
+
+      await this.logHistory(id, actorId, 'additionalAssignee:add', null, user.email);
+    }
+
+    // Return updated defect with additional assignees
+    return this.findDefectById(id);
   }
 }

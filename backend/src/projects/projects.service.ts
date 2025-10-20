@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
@@ -12,18 +12,31 @@ export class ProjectsService {
   constructor(private prisma: PrismaService) {}
 
   // Projects CRUD
-  async createProject(dto: CreateProjectDto) {
+  async createProject(dto: CreateProjectDto, creatorId: number) {
     return this.prisma.project.create({
       data: {
         name: dto.name,
         description: dto.description,
         startDate: dto.startDate ? new Date(dto.startDate) : null,
         endDate: dto.endDate ? new Date(dto.endDate) : null,
+        managers: {
+          connect: { id: creatorId },
+        },
       },
       include: {
         objects: {
           include: {
             stages: true,
+          },
+        },
+        managers: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            middleName: true,
+            email: true,
+            role: true,
           },
         },
         _count: {
@@ -42,6 +55,33 @@ export class ProjectsService {
         objects: {
           include: {
             stages: true,
+          },
+        },
+        managers: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true,
+          },
+        },
+        observers: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true,
+          },
+        },
+        engineers: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true,
           },
         },
         _count: {
@@ -68,6 +108,33 @@ export class ProjectsService {
                 defects: true,
               },
             },
+          },
+        },
+        managers: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true,
+          },
+        },
+        observers: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true,
+          },
+        },
+        engineers: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true,
           },
         },
         _count: {
@@ -103,6 +170,33 @@ export class ProjectsService {
             stages: true,
           },
         },
+        managers: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true,
+          },
+        },
+        observers: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true,
+          },
+        },
+        engineers: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true,
+          },
+        },
         _count: {
           select: {
             defects: true,
@@ -118,6 +212,35 @@ export class ProjectsService {
     return this.prisma.project.update({
       where: { id },
       data: { isArchived: true },
+      include: {
+        managers: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true,
+          },
+        },
+        observers: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true,
+          },
+        },
+        engineers: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true,
+          },
+        },
+      },
     });
   }
 
@@ -130,7 +253,7 @@ export class ProjectsService {
     });
 
     if (defectsCount > 0) {
-      throw new BadRequestException(
+      throw new ConflictException(
         `Cannot delete project with existing defects. Archive it instead.`,
       );
     }
@@ -398,24 +521,8 @@ export class ProjectsService {
   async removeManager(projectId: number, managerId: number) {
     await this.findProjectById(projectId);
 
-    return this.prisma.project.update({
-      where: { id: projectId },
-      data: {
-        managers: {
-          disconnect: { id: managerId },
-        },
-      },
-      include: {
-        managers: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-      },
-    });
+    // Removing managers from a project is not allowed (including self-removal)
+    throw new ForbiddenException('Removing managers from a project is not allowed');
   }
 
   // Observer-specific methods
@@ -508,6 +615,107 @@ export class ProjectsService {
       },
       include: {
         observers: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+    });
+  }
+
+  // Engineer-specific methods
+  async findEngineerProjects(engineerId: number) {
+    return this.prisma.project.findMany({
+      where: {
+        engineers: {
+          some: {
+            id: engineerId,
+          },
+        },
+        isArchived: false,
+      },
+      include: {
+        objects: {
+          include: {
+            stages: true,
+            _count: {
+              select: {
+                defects: true,
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            defects: true,
+          },
+        },
+        engineers: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
+
+  async assignEngineer(projectId: number, engineerId: number) {
+    await this.findProjectById(projectId);
+
+    // Verify user is an engineer
+    const user = await this.prisma.user.findUnique({
+      where: { id: engineerId },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User with ID ${engineerId} not found`);
+    }
+
+    if (user.role !== 'engineer') {
+      throw new BadRequestException(`User is not an engineer`);
+    }
+
+    return this.prisma.project.update({
+      where: { id: projectId },
+      data: {
+        engineers: {
+          connect: { id: engineerId },
+        },
+      },
+      include: {
+        engineers: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+    });
+  }
+
+  async removeEngineer(projectId: number, engineerId: number) {
+    await this.findProjectById(projectId);
+
+    return this.prisma.project.update({
+      where: { id: projectId },
+      data: {
+        engineers: {
+          disconnect: { id: engineerId },
+        },
+      },
+      include: {
+        engineers: {
           select: {
             id: true,
             firstName: true,

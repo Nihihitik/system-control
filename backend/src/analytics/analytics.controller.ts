@@ -85,6 +85,6 @@ export class AnalyticsController {
   })
   @ApiResponse({ status: 403, description: 'Недостаточно прав' })
   getTrends(@Request() req: any, @Query('days', new ParseIntPipe({ optional: true })) days?: number) {
-    return this.analyticsService.getTrends(req.user.sub, req.user.role, days);
+    return this.analyticsService.getTrends(req.user.sub, req.user.role, days ?? 30);
   }
 }

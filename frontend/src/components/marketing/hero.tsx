@@ -4,8 +4,11 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
 
 export function Hero() {
+  const { user } = useAuth();
+
   return (
     <section className="border-b">
       <div className="container mx-auto px-4 py-32">
@@ -23,15 +26,26 @@ export function Hero() {
             Роли, права доступа и отчёты в одном месте.
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Button asChild>
-              <Link href="/register">
-                Начать работу
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link href="/login">Войти</Link>
-            </Button>
+            {user ? (
+              <Button asChild>
+                <Link href="/dashboard">
+                  Перейти в Dashboard
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            ) : (
+              <>
+                <Button asChild>
+                  <Link href="/register">
+                    Начать работу
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+                <Button asChild variant="outline">
+                  <Link href="/login">Войти</Link>
+                </Button>
+              </>
+            )}
           </div>
           <p className="mt-6 text-center text-sm text-muted-foreground">
             Без кредитной карты · Начните за 2 минуты

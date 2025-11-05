@@ -321,7 +321,10 @@ export class DefectsService {
       where.priority = { in: filters.priorities };
     }
     if (filters.projectId) {
-      where.projectId = filters.projectId;
+      // Only filter by specific projectId if it's in the manager's projects
+      if (projectIds.includes(filters.projectId)) {
+        where.projectId = filters.projectId;
+      }
     }
     if (filters.buildingObjectId) {
       where.buildingObjectId = filters.buildingObjectId;
@@ -803,7 +806,10 @@ export class DefectsService {
       where.priority = { in: filters.priorities };
     }
     if (filters.projectId) {
-      where.projectId = filters.projectId;
+      // Only filter by specific projectId if it's in the observer's projects
+      if (projectIds.includes(filters.projectId)) {
+        where.projectId = filters.projectId;
+      }
     }
     if (filters.buildingObjectId) {
       where.buildingObjectId = filters.buildingObjectId;

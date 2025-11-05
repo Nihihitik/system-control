@@ -119,87 +119,82 @@ export class DefectsService {
     const skip = (page - 1) * limit;
 
     // Build where clause
-    const where: any = {};
+    const andConditions: any[] = [];
 
-    if (statuses && statuses.length > 0) {
-      where.status = { in: statuses };
+    if (statuses && statuses.length > 0 && !overdue) {
+      andConditions.push({ status: { in: statuses } });
     }
 
     if (priorities && priorities.length > 0) {
-      where.priority = { in: priorities };
+      andConditions.push({ priority: { in: priorities } });
     }
 
-    // Filter by assigneeId including additional assignees
     if (assigneeId) {
-      where.OR = [
-        { assigneeId: assigneeId },
-        {
-          additionalAssignees: {
-            some: { userId: assigneeId },
+      andConditions.push({
+        OR: [
+          { assigneeId },
+          {
+            additionalAssignees: {
+              some: { userId: assigneeId },
+            },
           },
-        },
-      ];
+        ],
+      });
     }
 
     if (authorId) {
-      where.authorId = authorId;
+      andConditions.push({ authorId });
     }
 
     if (projectId) {
-      where.projectId = projectId;
+      andConditions.push({ projectId });
     }
 
     if (buildingObjectId) {
-      where.buildingObjectId = buildingObjectId;
+      andConditions.push({ buildingObjectId });
     }
 
     if (stageId) {
-      where.stageId = stageId;
+      andConditions.push({ stageId });
     }
 
     if (createdFrom || createdTo) {
-      where.createdAt = {};
+      const createdAt: any = {};
       if (createdFrom) {
-        where.createdAt.gte = new Date(createdFrom);
+        createdAt.gte = new Date(createdFrom);
       }
       if (createdTo) {
-        where.createdAt.lte = new Date(createdTo);
+        createdAt.lte = new Date(createdTo);
       }
+      andConditions.push({ createdAt });
     }
 
-    if (plannedFrom || plannedTo) {
-      where.plannedDate = {};
+    if (!overdue && (plannedFrom || plannedTo)) {
+      const plannedDate: any = {};
       if (plannedFrom) {
-        where.plannedDate.gte = new Date(plannedFrom);
+        plannedDate.gte = new Date(plannedFrom);
       }
       if (plannedTo) {
-        where.plannedDate.lte = new Date(plannedTo);
+        plannedDate.lte = new Date(plannedTo);
       }
+      andConditions.push({ plannedDate });
     }
 
     if (overdue) {
-      where.plannedDate = { lt: new Date() };
-      where.status = { notIn: [DefectStatus.closed, DefectStatus.cancelled] };
+      andConditions.push({ plannedDate: { lt: new Date() } });
+      andConditions.push({ status: { notIn: [DefectStatus.closed, DefectStatus.cancelled] } });
     }
 
     if (search) {
-      // Combine with existing OR conditions if assigneeId filter is present
-      const searchConditions = [
-        { title: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-      ];
-      
-      if (where.OR && assigneeId) {
-        // Both assigneeId and search filters exist
-        where.AND = [
-          { OR: where.OR },
-          { OR: searchConditions },
-        ];
-        delete where.OR;
-      } else {
-        where.OR = searchConditions;
-      }
+      andConditions.push({
+        OR: [
+          { title: { contains: search, mode: 'insensitive' } },
+          { description: { contains: search, mode: 'insensitive' } },
+        ],
+      });
     }
+
+    const where: any = andConditions.length > 0 ? { AND: andConditions } : {};
 
     // Get total count
     const total = await this.prisma.defect.count({ where });
@@ -309,61 +304,57 @@ export class DefectsService {
     // Use the existing findAllDefects with projectId filter
     // But we need to filter by array of project IDs
     // So we'll do a custom query here
-    const where: any = {
-      projectId: { in: projectIds },
-    };
+    const andConditions: any[] = [
+      { projectId: { in: projectIds } },
+    ];
 
-    // Apply other filters
     if (filters.statuses && filters.statuses.length > 0) {
-      where.status = { in: filters.statuses };
+      andConditions.push({ status: { in: filters.statuses } });
     }
+
     if (filters.priorities && filters.priorities.length > 0) {
-      where.priority = { in: filters.priorities };
+      andConditions.push({ priority: { in: filters.priorities } });
     }
-    if (filters.projectId) {
-      // Only filter by specific projectId if it's in the manager's projects
-      if (projectIds.includes(filters.projectId)) {
-        where.projectId = filters.projectId;
-      }
+
+    if (filters.projectId && projectIds.includes(filters.projectId)) {
+      andConditions.push({ projectId: filters.projectId });
     }
+
     if (filters.buildingObjectId) {
-      where.buildingObjectId = filters.buildingObjectId;
+      andConditions.push({ buildingObjectId: filters.buildingObjectId });
     }
+
     if (filters.stageId) {
-      where.stageId = filters.stageId;
+      andConditions.push({ stageId: filters.stageId });
     }
-    // Filter by assigneeId including additional assignees
+
     if (filters.assigneeId) {
-      where.OR = [
-        { assigneeId: filters.assigneeId },
-        {
-          additionalAssignees: {
-            some: { userId: filters.assigneeId },
+      andConditions.push({
+        OR: [
+          { assigneeId: filters.assigneeId },
+          {
+            additionalAssignees: {
+              some: { userId: filters.assigneeId },
+            },
           },
-        },
-      ];
+        ],
+      });
     }
+
     if (filters.authorId) {
-      where.authorId = filters.authorId;
+      andConditions.push({ authorId: filters.authorId });
     }
+
     if (filters.search) {
-      // Combine with existing OR conditions if assigneeId filter is present
-      const searchConditions = [
-        { title: { contains: filters.search, mode: 'insensitive' } },
-        { description: { contains: filters.search, mode: 'insensitive' } },
-      ];
-      
-      if (where.OR && filters.assigneeId) {
-        // Both assigneeId and search filters exist
-        where.AND = [
-          { OR: where.OR },
-          { OR: searchConditions },
-        ];
-        delete where.OR;
-      } else {
-        where.OR = searchConditions;
-      }
+      andConditions.push({
+        OR: [
+          { title: { contains: filters.search, mode: 'insensitive' } },
+          { description: { contains: filters.search, mode: 'insensitive' } },
+        ],
+      });
     }
+
+    const where: any = { AND: andConditions };
 
     // Pagination
     const page = filters.page || 1;
@@ -794,61 +785,57 @@ export class DefectsService {
     }
 
     // Build where clause with filters
-    const where: any = {
-      projectId: { in: projectIds },
-    };
+    const andConditions: any[] = [
+      { projectId: { in: projectIds } },
+    ];
 
-    // Apply filters
     if (filters.statuses && filters.statuses.length > 0) {
-      where.status = { in: filters.statuses };
+      andConditions.push({ status: { in: filters.statuses } });
     }
+
     if (filters.priorities && filters.priorities.length > 0) {
-      where.priority = { in: filters.priorities };
+      andConditions.push({ priority: { in: filters.priorities } });
     }
-    if (filters.projectId) {
-      // Only filter by specific projectId if it's in the observer's projects
-      if (projectIds.includes(filters.projectId)) {
-        where.projectId = filters.projectId;
-      }
+
+    if (filters.projectId && projectIds.includes(filters.projectId)) {
+      andConditions.push({ projectId: filters.projectId });
     }
+
     if (filters.buildingObjectId) {
-      where.buildingObjectId = filters.buildingObjectId;
+      andConditions.push({ buildingObjectId: filters.buildingObjectId });
     }
+
     if (filters.stageId) {
-      where.stageId = filters.stageId;
+      andConditions.push({ stageId: filters.stageId });
     }
-    // Filter by assigneeId including additional assignees
+
     if (filters.assigneeId) {
-      where.OR = [
-        { assigneeId: filters.assigneeId },
-        {
-          additionalAssignees: {
-            some: { userId: filters.assigneeId },
+      andConditions.push({
+        OR: [
+          { assigneeId: filters.assigneeId },
+          {
+            additionalAssignees: {
+              some: { userId: filters.assigneeId },
+            },
           },
-        },
-      ];
+        ],
+      });
     }
+
     if (filters.authorId) {
-      where.authorId = filters.authorId;
+      andConditions.push({ authorId: filters.authorId });
     }
+
     if (filters.search) {
-      // Combine with existing OR conditions if assigneeId filter is present
-      const searchConditions = [
-        { title: { contains: filters.search, mode: 'insensitive' } },
-        { description: { contains: filters.search, mode: 'insensitive' } },
-      ];
-      
-      if (where.OR && filters.assigneeId) {
-        // Both assigneeId and search filters exist
-        where.AND = [
-          { OR: where.OR },
-          { OR: searchConditions },
-        ];
-        delete where.OR;
-      } else {
-        where.OR = searchConditions;
-      }
+      andConditions.push({
+        OR: [
+          { title: { contains: filters.search, mode: 'insensitive' } },
+          { description: { contains: filters.search, mode: 'insensitive' } },
+        ],
+      });
     }
+
+    const where: any = { AND: andConditions };
 
     // Pagination
     const page = filters.page || 1;

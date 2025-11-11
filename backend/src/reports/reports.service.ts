@@ -29,45 +29,66 @@ export class ReportsService {
       return [];
     }
 
-    // Build where clause
-    const where: any = {
-      projectId: { in: projectIds },
-    };
+    // Build where clause using AND conditions for proper filtering
+    const andConditions: any[] = [];
+
+    // Handle projectId filter - don't overwrite base condition
+    if (filters.projectId) {
+      // Check if user has access to the specified project
+      if (projectIds.includes(filters.projectId)) {
+        andConditions.push({ projectId: filters.projectId });
+      } else {
+        // User doesn't have access to this project - return empty result
+        return [];
+      }
+    } else {
+      // No specific project filter - use all user's projects
+      andConditions.push({ projectId: { in: projectIds } });
+    }
 
     // Support single or multiple status/priority filters
     if (filters.statuses && filters.statuses.length > 0) {
-      where.status = { in: filters.statuses };
+      andConditions.push({ status: { in: filters.statuses } });
     } else if (filters.status) {
-      where.status = filters.status;
+      andConditions.push({ status: filters.status });
     }
 
     if (filters.priorities && filters.priorities.length > 0) {
-      where.priority = { in: filters.priorities };
+      andConditions.push({ priority: { in: filters.priorities } });
     } else if (filters.priority) {
-      where.priority = filters.priority;
-    }
-
-    if (filters.projectId) {
-      where.projectId = filters.projectId;
+      andConditions.push({ priority: filters.priority });
     }
 
     if (filters.buildingObjectId) {
-      where.buildingObjectId = filters.buildingObjectId;
+      andConditions.push({ buildingObjectId: filters.buildingObjectId });
     }
 
+    // Handle assigneeId filter - include additional assignees
     if (filters.assigneeId) {
-      where.assigneeId = filters.assigneeId;
+      andConditions.push({
+        OR: [
+          { assigneeId: filters.assigneeId },
+          {
+            additionalAssignees: {
+              some: { userId: filters.assigneeId },
+            },
+          },
+        ],
+      });
     }
 
     if (filters.dateFrom || filters.dateTo) {
-      where.createdAt = {};
+      const createdAt: any = {};
       if (filters.dateFrom) {
-        where.createdAt.gte = new Date(filters.dateFrom);
+        createdAt.gte = new Date(filters.dateFrom);
       }
       if (filters.dateTo) {
-        where.createdAt.lte = new Date(filters.dateTo);
+        createdAt.lte = new Date(filters.dateTo);
       }
+      andConditions.push({ createdAt });
     }
+
+    const where: any = { AND: andConditions };
 
     // Fetch defects
     return this.prisma.defect.findMany({

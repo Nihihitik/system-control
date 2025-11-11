@@ -301,12 +301,30 @@ export class DefectsService {
       };
     }
 
-    // Use the existing findAllDefects with projectId filter
-    // But we need to filter by array of project IDs
-    // So we'll do a custom query here
-    const andConditions: any[] = [
-      { projectId: { in: projectIds } },
-    ];
+    // Build conditions array
+    const andConditions: any[] = [];
+
+    // Handle projectId filter
+    if (filters.projectId) {
+      // If specific project is requested, check if manager has access to it
+      if (projectIds.includes(filters.projectId)) {
+        andConditions.push({ projectId: filters.projectId });
+      } else {
+        // Manager doesn't have access to this project - return empty result
+        return {
+          data: [],
+          meta: {
+            total: 0,
+            page: filters.page || 1,
+            limit: filters.limit || 10,
+            totalPages: 0,
+          },
+        };
+      }
+    } else {
+      // No specific project filter - use all manager's projects
+      andConditions.push({ projectId: { in: projectIds } });
+    }
 
     if (filters.statuses && filters.statuses.length > 0) {
       andConditions.push({ status: { in: filters.statuses } });
@@ -314,10 +332,6 @@ export class DefectsService {
 
     if (filters.priorities && filters.priorities.length > 0) {
       andConditions.push({ priority: { in: filters.priorities } });
-    }
-
-    if (filters.projectId && projectIds.includes(filters.projectId)) {
-      andConditions.push({ projectId: filters.projectId });
     }
 
     if (filters.buildingObjectId) {
@@ -784,10 +798,30 @@ export class DefectsService {
       };
     }
 
-    // Build where clause with filters
-    const andConditions: any[] = [
-      { projectId: { in: projectIds } },
-    ];
+    // Build conditions array
+    const andConditions: any[] = [];
+
+    // Handle projectId filter
+    if (filters.projectId) {
+      // If specific project is requested, check if observer has access to it
+      if (projectIds.includes(filters.projectId)) {
+        andConditions.push({ projectId: filters.projectId });
+      } else {
+        // Observer doesn't have access to this project - return empty result
+        return {
+          data: [],
+          meta: {
+            total: 0,
+            page: filters.page || 1,
+            limit: filters.limit || 10,
+            totalPages: 0,
+          },
+        };
+      }
+    } else {
+      // No specific project filter - use all observer's projects
+      andConditions.push({ projectId: { in: projectIds } });
+    }
 
     if (filters.statuses && filters.statuses.length > 0) {
       andConditions.push({ status: { in: filters.statuses } });
@@ -795,10 +829,6 @@ export class DefectsService {
 
     if (filters.priorities && filters.priorities.length > 0) {
       andConditions.push({ priority: { in: filters.priorities } });
-    }
-
-    if (filters.projectId && projectIds.includes(filters.projectId)) {
-      andConditions.push({ projectId: filters.projectId });
     }
 
     if (filters.buildingObjectId) {
